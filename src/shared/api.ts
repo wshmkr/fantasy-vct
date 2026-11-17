@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  MANAGER_COLORS,
+  MAX_PICK_SECONDS,
+  MIN_PICK_SECONDS,
+} from "./entities.js";
 
 export interface HealthResponse {
   ok: boolean;
@@ -28,6 +33,8 @@ export const API_ROUTES = {
     `/api/tournaments/${tournamentId}/teams`,
   tournamentMembers: (tournamentId: Id) =>
     `/api/tournaments/${tournamentId}/members`,
+  myTournamentMembership: (tournamentId: Id) =>
+    `/api/tournaments/${tournamentId}/members/me`,
   tournamentMember: (tournamentId: Id, userId: Id) =>
     `/api/tournaments/${tournamentId}/members/${userId}`,
   tournamentReimport: (tournamentId: Id) =>
@@ -39,6 +46,7 @@ export const API_ROUTES = {
   draft: (stageId: Id) => `/api/stages/${stageId}/draft`,
   draftActions: (stageId: Id) => `/api/stages/${stageId}/draft/actions`,
   draftStream: (stageId: Id) => `/api/stages/${stageId}/draft/stream`,
+  importJob: (importId: Id) => `/api/imports/${importId}`,
   image: (imageId: Id) => `/api/images/${imageId}`,
 } as const;
 
@@ -53,3 +61,39 @@ export const addMemberBodySchema = z.object({
     .pipe(z.string().min(1)),
 });
 export type AddMemberBody = z.input<typeof addMemberBodySchema>;
+
+export interface ImportStarted {
+  importId: string;
+}
+
+const VLR_EVENT_URL =
+  /^(?:https?:\/\/)?(?:www\.)?vlr\.gg\/event\/(\d+)(\/[^/?#\s]+)?/;
+
+// One canonical spelling per event, because the import cache is keyed by URL.
+export const createTournamentBodySchema = z.object({
+  vlrEventUrl: z
+    .string()
+    .trim()
+    .regex(VLR_EVENT_URL)
+    .transform((url) => {
+      const [, eventId, slug = ""] = VLR_EVENT_URL.exec(url) ?? [];
+      return `https://www.vlr.gg/event/${eventId}${slug}`;
+    }),
+});
+export type CreateTournamentBody = z.input<typeof createTournamentBodySchema>;
+
+export const updateTournamentBodySchema = z.object({
+  joiningOpen: z.boolean().optional(),
+  pickSeconds: z
+    .number()
+    .int()
+    .min(MIN_PICK_SECONDS)
+    .max(MAX_PICK_SECONDS)
+    .optional(),
+});
+export type UpdateTournamentBody = z.input<typeof updateTournamentBodySchema>;
+
+export const managerColorBodySchema = z.object({
+  color: z.enum(MANAGER_COLORS),
+});
+export type ManagerColorBody = z.input<typeof managerColorBodySchema>;

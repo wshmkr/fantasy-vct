@@ -195,6 +195,20 @@ const theme = createTheme({
         },
       },
     },
+    MuiInputBase: {
+      styleOverrides: {
+        root: {
+          height: 44,
+          padding: "0 12px",
+          fontSize: 15,
+          borderRadius: "var(--radius-md)",
+          backgroundColor: "#0f0f12",
+          boxShadow: "inset 0 0 0 1px var(--line)",
+          "&.Mui-focused": { boxShadow: "inset 0 0 0 1px var(--accent)" },
+          "&.Mui-error": { boxShadow: "inset 0 0 0 1px var(--loss)" },
+        },
+      },
+    },
     MuiChip: {
       styleOverrides: {
         root: { ...textStyle("label"), borderRadius: "var(--radius-full)" },

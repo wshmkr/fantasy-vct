@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Crown, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { apiClient } from "../apiClient";
+import ErrorLabel from "../components/ErrorLabel";
 import ManagerAvatar from "../components/ManagerAvatar";
 import Pane from "../components/Pane";
 import { useMe } from "../useMe";
@@ -59,28 +60,13 @@ function AddMemberForm() {
             @
           </Box>
         }
+        error={addMember.isError}
         sx={[
-          {
-            flex: 1,
-            height: 44,
-            px: "14px",
-            fontSize: 15,
-            borderRadius: "var(--radius-md)",
-            bgcolor: "#0f0f12",
-            boxShadow: "inset 0 0 0 1px var(--line)",
-            "&.Mui-focused": { boxShadow: "inset 0 0 0 1px var(--accent)" },
-          },
-          addMember.isError && {
-            boxShadow: "inset 0 0 0 1px var(--loss)",
-            animation: `${shake} 200ms ease-out 2`,
-          },
+          { flex: 1, px: "14px" },
+          addMember.isError && { animation: `${shake} 200ms ease-out 2` },
         ]}
       />
-      {addMember.isError && (
-        <Typography variant="label" sx={{ color: "var(--loss)" }}>
-          {addMember.error.message}
-        </Typography>
-      )}
+      <ErrorLabel message={addMember.error?.message} />
       <Button
         type="submit"
         variant="contained"

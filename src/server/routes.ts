@@ -6,7 +6,10 @@ import { devLoginRouter } from "./auth/dev-login.js";
 import { createDiscordRouter } from "./auth/discord.js";
 import { clearSessionCookie } from "./auth/session.js";
 import { env } from "./env.js";
+import { imagesRouter } from "./routes/images.js";
+import { importsRouter } from "./routes/imports.js";
 import { membersRouter } from "./routes/members.js";
+import { tournamentsRouter } from "./routes/tournaments.js";
 
 const startedAt = new Date();
 
@@ -39,3 +42,6 @@ apiRouter.get("/me", requireUser, (_req, res: Response<User>) => {
 });
 
 apiRouter.use(membersRouter);
+apiRouter.use(tournamentsRouter);
+apiRouter.use(importsRouter);
+apiRouter.use(imagesRouter);

@@ -12,7 +12,7 @@ export default function AppShell() {
   return (
     <>
       <Background />
-      <Box sx={{ maxWidth: 1320, mx: "auto", px: 5, pt: 3, pb: 5 }}>
+      <Box sx={{ maxWidth: 1400, mx: "auto", px: 5, pt: 3, pb: 5 }}>
         <SiteLogo />
         <Box component="main" sx={{ pt: 5 }}>
           {me.data && <Outlet />}

@@ -18,6 +18,10 @@ export const MANAGER_COLORS = [
 ] as const;
 export type ManagerColor = (typeof MANAGER_COLORS)[number];
 
+export const MAX_MANAGERS = 8;
+export const MIN_PICK_SECONDS = 15;
+export const MAX_PICK_SECONDS = 600;
+
 export const USER_ROLES = ["commissioner", "member"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
@@ -63,6 +67,10 @@ export interface Team {
   id: number;
   name: string;
   logoImageId: number | null;
+}
+
+export interface TeamWithPickables extends Team {
+  pickables: Pickable[];
 }
 
 export interface TopAgent {
@@ -154,8 +162,17 @@ export interface DraftState {
   recentActions: DraftAction[];
 }
 
+export const IMPORT_PHASES = ["event", "teams", "players"] as const;
+export type ImportPhase = (typeof IMPORT_PHASES)[number];
+
 export interface ImportProgress {
-  phase: "event" | "teams" | "players";
+  phase: ImportPhase;
   done: number;
   total: number;
+}
+
+export interface ImportJob {
+  progress: Partial<Record<ImportPhase, { done: number; total: number }>>;
+  tournamentId: number | null;
+  error: string | null;
 }
