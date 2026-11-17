@@ -1,0 +1,275 @@
+import Box from "@mui/material/Box";
+import type { DraftActionBody } from "@shared/api";
+import {
+  type DraftState,
+  isDraftRunning,
+  type PickableKind,
+  type PoolPickable,
+  ROSTER_LIMITS,
+  type Stage,
+  type Tournament,
+  type User,
+} from "@shared/entities";
+import { Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import Pane from "../../../components/Pane";
+import { useDraft, useDraftCommand, useDraftStream } from "../../../draft";
+import { useInvalidateTournaments } from "../../../tournaments";
+import { useMe } from "../../../useMe";
+import {
+  CommissionerControls,
+  CompleteBadge,
+  OnTheClock,
+  PhaseDots,
+  PrimaryAction,
+  RejectionLabel,
+  StagePills,
+} from "./ClockBar";
+import DraftBoard from "./DraftBoard";
+import DraftPool from "./DraftPool";
+import RecentActions from "./RecentActions";
+import { useSecondsLeft } from "./useSecondsLeft";
+
+const REJECTION_MS = 3000;
+const FULL_ROSTER_SIZE = ROSTER_LIMITS.player + ROSTER_LIMITS.coach;
+// Tall enough for about eight pool rows even when few managers make the board short.
+const MIN_POOL_HEIGHT = 470;
+
+function defaultStageId(stages: Stage[]): number | undefined {
+  const live = stages.find((stage) => isDraftRunning(stage.status));
+  const upcoming = stages.find((stage) => stage.status === "setup");
+  return (live ?? upcoming ?? stages[0])?.id;
+}
+
+export default function DraftTab({ tournament }: { tournament: Tournament }) {
+  const me = useMe();
+  const [stageId, setStageId] = useState(() =>
+    defaultStageId(tournament.stages),
+  );
+  if (stageId === undefined || !me.data) return null;
+  return (
+    <DraftRoom
+      key={stageId}
+      me={me.data}
+      stages={tournament.stages}
+      stageId={stageId}
+      onStageChange={setStageId}
+    />
+  );
+}
+
+function OnTheClockTimer({
+  draft,
+  receivedAt,
+  actorUserId,
+}: {
+  draft: DraftState;
+  receivedAt: number;
+  actorUserId: number;
+}) {
+  const secondsLeft = useSecondsLeft(draft, receivedAt);
+  const seat = draft.seats.find((s) => s.seat === draft.currentSeat);
+  if (!seat) return null;
+  return (
+    <OnTheClock
+      seat={seat}
+      secondsLeft={secondsLeft}
+      isActorsTurn={seat.user.id === actorUserId}
+    />
+  );
+}
+
+function DraftRoom({
+  me,
+  stages,
+  stageId,
+  onStageChange,
+}: {
+  me: User;
+  stages: Stage[];
+  stageId: number;
+  onStageChange: (stageId: number) => void;
+}) {
+  const draftQuery = useDraft(stageId);
+  useDraftStream(stageId);
+  const invalidateTournaments = useInvalidateTournaments();
+  const [actingAsUserId, setActingAsUserId] = useState<number | null>(null);
+  const [swapOutId, setSwapOutId] = useState<number | null>(null);
+  const [kind, setKind] = useState<PickableKind>("player");
+  const command = useDraftCommand(stageId);
+  const rejection =
+    command.isError && command.variables
+      ? {
+          id: command.submittedAt,
+          message: command.error.message,
+          fromPoolRow:
+            "action" in command.variables &&
+            command.variables.action.action !== "lock",
+        }
+      : null;
+
+  const status = draftQuery.data?.status;
+  useEffect(() => {
+    // Starting and finishing a draft change the stage and tournament badges.
+    if (status) invalidateTournaments();
+  }, [status, invalidateTournaments]);
+
+  const rejectionId = rejection?.id;
+  const { reset } = command;
+  useEffect(() => {
+    if (rejectionId === undefined) return;
+    const clear = setTimeout(reset, REJECTION_MS);
+    return () => clearTimeout(clear);
+  }, [rejectionId, reset]);
+
+  const draft = draftQuery.data;
+  if (!draft) return null;
+
+  const isCommissioner = me.role === "commissioner";
+  const actorUserId = actingAsUserId ?? me.id;
+  const actorSeat = draft.seats.find((seat) => seat.user.id === actorUserId);
+  const isActorsTurn =
+    draft.status === "drafting" &&
+    actorSeat !== undefined &&
+    actorSeat.seat === draft.currentSeat;
+  const canPick = isActorsTurn && draft.phase === "draft";
+  const canSwap = isActorsTurn && draft.phase === "swap";
+  const canLock =
+    draft.status === "drafting" &&
+    draft.phase === "swap" &&
+    actorSeat !== undefined &&
+    !actorSeat.locked &&
+    actorSeat.rosterPickableIds.length === FULL_ROSTER_SIZE;
+  const selectedSwapOutId =
+    canSwap &&
+    swapOutId !== null &&
+    actorSeat.rosterPickableIds.includes(swapOutId)
+      ? swapOutId
+      : null;
+
+  const pickablesById = new Map(draft.pool.map((p) => [p.id, p]));
+  const teamLogos = new Map(draft.teams.map((t) => [t.id, t.logoImageId]));
+  const onBehalfOf = actingAsUserId ?? undefined;
+
+  const act = (action: DraftActionBody) =>
+    command.mutate({ action: { ...action, onBehalfOf } });
+  const actOnPoolRow = (pickable: PoolPickable) => {
+    if (canPick) act({ action: "pick", pickableId: pickable.id });
+    else if (selectedSwapOutId !== null) {
+      act({
+        action: "swap",
+        pickableOutId: selectedSwapOutId,
+        pickableInId: pickable.id,
+      });
+    }
+  };
+  const selectSwapOut = (pickable: PoolPickable) => {
+    setSwapOutId(pickable.id === selectedSwapOutId ? null : pickable.id);
+    setKind(pickable.kind);
+  };
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <Pane
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: "18px",
+          py: "10px",
+          minHeight: 56,
+        }}
+      >
+        <StagePills
+          stages={stages}
+          selectedStageId={stageId}
+          onSelect={onStageChange}
+        />
+        <Box
+          sx={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "18px",
+          }}
+        >
+          {draft.status === "complete" ? (
+            <CompleteBadge />
+          ) : (
+            <OnTheClockTimer
+              draft={draft}
+              receivedAt={draftQuery.dataUpdatedAt}
+              actorUserId={actorUserId}
+            />
+          )}
+          <PhaseDots draft={draft} />
+        </Box>
+        {rejection && (
+          <RejectionLabel key={rejection.id} rejection={rejection} />
+        )}
+        {canLock && (
+          <PrimaryAction
+            label="Lock"
+            icon={<Lock size={15} />}
+            disabled={command.isPending}
+            onClick={() => act({ action: "lock" })}
+          />
+        )}
+        {isCommissioner && (
+          <CommissionerControls
+            draft={draft}
+            disabled={command.isPending}
+            onControl={(control) => command.mutate({ control })}
+            actingAsUserId={actingAsUserId}
+            onActingAsChange={setActingAsUserId}
+          />
+        )}
+      </Pane>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "7fr 5fr",
+          gap: "16px",
+          alignItems: "start",
+        }}
+      >
+        <DraftBoard
+          draft={draft}
+          receivedAt={draftQuery.dataUpdatedAt}
+          pickablesById={pickablesById}
+          teamLogos={teamLogos}
+          swapperUserId={canSwap ? actorUserId : null}
+          swapOutId={selectedSwapOutId}
+          onSwapOutSelect={selectSwapOut}
+        />
+        {/* The pool scrolls inside whatever height the board sets, so the room fits one screen. */}
+        <Box
+          sx={{
+            position: "relative",
+            alignSelf: "stretch",
+            minHeight: MIN_POOL_HEIGHT,
+          }}
+        >
+          <DraftPool
+            pool={draft.pool}
+            teams={draft.teams}
+            teamLogos={teamLogos}
+            kind={kind}
+            onKindChange={setKind}
+            actionLabel={
+              canPick ? "Pick" : selectedSwapOutId !== null ? "Swap" : null
+            }
+            actionPending={command.isPending}
+            onAct={actOnPoolRow}
+            rowRejectionId={rejection?.fromPoolRow ? rejection.id : null}
+          />
+        </Box>
+      </Box>
+      <RecentActions
+        actions={draft.recentActions}
+        seats={draft.seats}
+        pickablesById={pickablesById}
+      />
+    </Box>
+  );
+}

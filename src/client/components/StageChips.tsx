@@ -1,13 +1,12 @@
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
-import type { Stage } from "@shared/entities";
+import { isDraftRunning, type Stage } from "@shared/entities";
 
 export default function StageChips({ stages }: { stages: Stage[] }) {
   return (
     <Box sx={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
       {stages.map((stage) => {
-        const isCurrent =
-          stage.status === "drafting" || stage.status === "paused";
+        const isCurrent = isDraftRunning(stage.status);
         return (
           <Chip
             key={stage.id}

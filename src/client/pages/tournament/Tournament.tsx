@@ -3,6 +3,7 @@ import { LayoutGrid, Settings2, Shield, Users } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import { useTournament } from "../../tournaments";
 import { useMe } from "../../useMe";
+import DraftTab from "./draft/DraftTab";
 import SettingsTab from "./SettingsTab";
 import TeamsTab from "./TeamsTab";
 import TournamentHeader from "./TournamentHeader";
@@ -42,6 +43,7 @@ export default function Tournament() {
           tournamentId={tournamentId}
         />
       </Box>
+      {tab === "draft" && <DraftTab tournament={tournament.data} />}
       {tab === "teams" && <TeamsTab tournamentId={tournamentId} />}
       {tab === "settings" && <SettingsTab tournament={tournament.data} />}
     </Box>

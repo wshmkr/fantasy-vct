@@ -36,6 +36,10 @@ export const STAGE_STATUSES = [
 ] as const;
 export type StageStatus = (typeof STAGE_STATUSES)[number];
 
+export function isDraftRunning(status: StageStatus): boolean {
+  return status === "drafting" || status === "paused";
+}
+
 export const STAGE_SOURCES = ["vlr", "manual"] as const;
 export type StageSource = (typeof STAGE_SOURCES)[number];
 

@@ -14,7 +14,7 @@ interface PlayerChipProps {
   "aria-label"?: string;
 }
 
-function CoachBadge() {
+export function CoachBadge() {
   return (
     <Tooltip title="Coach">
       <Box
