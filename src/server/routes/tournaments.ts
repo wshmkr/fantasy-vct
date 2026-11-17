@@ -9,7 +9,6 @@ import {
 import {
   MAX_MANAGERS,
   type MatchStatus,
-  type Pickable,
   type StageStatus,
   type TeamWithPickables,
   type Tournament,
@@ -28,11 +27,12 @@ import {
   users,
 } from "../db/schema.js";
 import { HttpError } from "../error-handler.js";
+import { toPickable } from "../pickables.js";
+import { toStage } from "../stages.js";
 import { importEvent, reimportTournament } from "../vlr/import.js";
 import { startImportJob } from "./imports.js";
 
 type TournamentRow = typeof tournaments.$inferSelect;
-type PickableRow = typeof pickables.$inferSelect;
 
 function deriveTournamentStatus(
   stageStatuses: StageStatus[],
@@ -88,14 +88,7 @@ function toTournament(row: TournamentRow): Tournament {
       stageRows.map((stage) => stage.status),
       matchStatuses,
     ),
-    stages: stageRows.map((stage) => ({
-      id: stage.id,
-      tournamentId: stage.tournamentId,
-      name: stage.name,
-      position: stage.position,
-      status: stage.status,
-      pickSeconds: stage.pickSeconds,
-    })),
+    stages: stageRows.map(toStage),
     members: memberRows.map(({ user, color }) => ({
       user: toUser(user),
       color,
@@ -125,23 +118,6 @@ function requireNoDraftStarted(tournamentId: number) {
     )
     .get();
   if (started) throw new HttpError(400, "Draft started");
-}
-
-function toPickable(row: PickableRow): Pickable {
-  return {
-    id: row.id,
-    kind: row.kind,
-    handle: row.handle,
-    teamId: row.teamId,
-    isPlaceholder: row.isPlaceholder,
-    vlrUrl: row.vlrUrl,
-    photoImageId: row.photoImageId,
-    topAgents: row.topAgentsJson,
-    formRating: row.formRating,
-    formAcs: row.formAcs,
-    formKd: row.formKd,
-    formRounds: row.formRounds,
-  };
 }
 
 const STATUS_ORDER: Record<TournamentStatus, number> = {

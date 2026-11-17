@@ -2,6 +2,7 @@ import { API_ROUTES, type ManagerColorBody } from "@shared/api";
 import type {
   ImportJob,
   ManagerColor,
+  StagePoolTeam,
   TeamWithPickables,
   Tournament,
 } from "@shared/entities";
@@ -37,6 +38,15 @@ export function useTournamentTeams(tournamentId: number) {
       apiClient.get<TeamWithPickables[]>(
         API_ROUTES.tournamentTeams(tournamentId),
       ),
+  });
+}
+
+// Nested under the tournament key so every tournament mutation also refreshes the pool.
+export function useStagePool(tournamentId: number, stageId: number) {
+  return useQuery({
+    queryKey: [...tournamentQueryKey(tournamentId), "pool", stageId],
+    queryFn: () =>
+      apiClient.get<StagePoolTeam[]>(API_ROUTES.stagePool(stageId)),
   });
 }
 

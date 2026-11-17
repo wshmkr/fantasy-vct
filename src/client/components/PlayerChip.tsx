@@ -8,6 +8,10 @@ import PlayerPhoto from "./PlayerPhoto";
 interface PlayerChipProps {
   pickable: Pick<Pickable, "kind" | "handle" | "vlrUrl" | "photoImageId">;
   teamLogoImageId: number | null;
+  dense?: boolean;
+  struckOut?: boolean;
+  onClick?: () => void;
+  "aria-label"?: string;
 }
 
 function CoachBadge() {
@@ -36,44 +40,61 @@ function CoachBadge() {
   );
 }
 
+function chipElement(vlrUrl: string | null, onClick: (() => void) | undefined) {
+  if (onClick) return { component: "button", type: "button", onClick };
+  if (vlrUrl) {
+    return { component: "a", href: vlrUrl, target: "_blank", rel: "noopener" };
+  }
+  return { component: "div" };
+}
+
 export default function PlayerChip({
   pickable,
   teamLogoImageId,
+  dense = false,
+  struckOut = false,
+  onClick,
+  ...ariaProps
 }: PlayerChipProps) {
-  const link = pickable.vlrUrl
-    ? {
-        component: "a",
-        href: pickable.vlrUrl,
-        target: "_blank",
-        rel: "noopener",
-      }
-    : { component: "div" };
   return (
     <Box
-      {...link}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: "9px",
-        p: "6px",
-        minWidth: 0,
-        borderRadius: "9px",
-        color: "var(--ink)",
-        textDecoration: "none",
-        transition: "background-color 150ms ease-out",
-        "&:is(a):hover": { bgcolor: "var(--pane-hover)" },
-      }}
+      {...chipElement(pickable.vlrUrl, onClick)}
+      {...ariaProps}
+      sx={[
+        {
+          display: "flex",
+          alignItems: "center",
+          gap: dense ? "7px" : "9px",
+          p: dense ? "2px 4px" : "6px",
+          minWidth: 0,
+          border: 0,
+          borderRadius: dense ? "var(--radius-sm)" : "9px",
+          bgcolor: "transparent",
+          color: "var(--ink)",
+          font: "inherit",
+          textAlign: "left",
+          textDecoration: "none",
+          cursor: onClick ? "pointer" : undefined,
+          transition: "background-color 150ms ease-out, opacity 150ms ease-out",
+          "&:is(a, button):hover": { bgcolor: "var(--pane-hover)" },
+        },
+        struckOut && { opacity: 0.35 },
+      ]}
     >
       <PlayerPhoto
         photoImageId={pickable.photoImageId}
         teamLogoImageId={teamLogoImageId}
-        size={30}
+        size={dense ? 26 : 30}
       />
       <Typography
         variant="bodyStrong"
         noWrap
         title={pickable.handle}
-        sx={{ minWidth: 0 }}
+        sx={[
+          { minWidth: 0 },
+          dense && { fontSize: 13 },
+          struckOut && { textDecoration: "line-through" },
+        ]}
       >
         {pickable.handle}
       </Typography>

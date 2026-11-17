@@ -97,3 +97,17 @@ export const managerColorBodySchema = z.object({
   color: z.enum(MANAGER_COLORS),
 });
 export type ManagerColorBody = z.input<typeof managerColorBodySchema>;
+
+export const updateStageBodySchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  pickSeconds: z
+    .number()
+    .int()
+    .min(MIN_PICK_SECONDS)
+    .max(MAX_PICK_SECONDS)
+    .optional(),
+});
+export type UpdateStageBody = z.input<typeof updateStageBodySchema>;
+
+export const updatePoolEntryBodySchema = z.object({ removed: z.boolean() });
+export type UpdatePoolEntryBody = z.input<typeof updatePoolEntryBodySchema>;

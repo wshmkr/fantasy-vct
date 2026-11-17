@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, test, vi } from "vitest";
 import { MANAGER_COLORS, type Tournament } from "../../shared/entities.js";
 import { db } from "../db/client.js";
 import { images, matches, stages } from "../db/schema.js";
-import { insertUser, loginAs } from "../test-utils.js";
+import { importAndWait, insertUser, loginAs } from "../test-utils.js";
 import { FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
 
 vi.mock("../vlr/fetch.js", async (importOriginal) => {
@@ -18,16 +18,6 @@ vi.mock("../vlr/fetch.js", async (importOriginal) => {
 let commissioner: TestAgent;
 let member: TestAgent;
 let tournamentId: number;
-
-async function importAndWait(agent: TestAgent, startPath: string, body = {}) {
-  const started = await agent.post(startPath).send(body).expect(202);
-  await vi.waitFor(async () => {
-    const job = await agent.get(`/api/imports/${started.body.importId}`);
-    expect(job.body.error).toBeNull();
-    expect(job.body.tournamentId).not.toBeNull();
-  });
-  return (await agent.get(`/api/imports/${started.body.importId}`)).body;
-}
 
 beforeAll(async () => {
   commissioner = await loginAs(insertUser("commish", "commissioner").id);

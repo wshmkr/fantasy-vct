@@ -105,6 +105,16 @@ export interface Stage {
   position: number;
   status: StageStatus;
   pickSeconds: number;
+  matchCount: number;
+  poolSize: number;
+}
+
+export interface StagePoolEntry extends Pickable {
+  removed: boolean;
+}
+
+export interface StagePoolTeam extends Team {
+  pool: StagePoolEntry[];
 }
 
 export interface Tournament {

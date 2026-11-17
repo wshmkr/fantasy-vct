@@ -18,12 +18,15 @@ import {
 } from "@shared/entities";
 import { useMutation } from "@tanstack/react-query";
 import { Lock, LockOpen, Minus, Plus, RefreshCw, Timer, X } from "lucide-react";
+import { useState } from "react";
 import { apiClient } from "../../apiClient";
 import ErrorLabel from "../../components/ErrorLabel";
 import ManagerAvatar from "../../components/ManagerAvatar";
 import Pane from "../../components/Pane";
+import SectionLabel from "../../components/SectionLabel";
 import SmallIconButton from "../../components/SmallIconButton";
 import { useImportJob, useTournamentMutation } from "../../tournaments";
+import { PoolEditor, StagesSection } from "./StagesSection";
 
 const PICK_SECONDS_STEP = 15;
 
@@ -108,18 +111,7 @@ function ManagersSection({ tournament }: { tournament: Tournament }) {
       sx={{ display: "flex", flexDirection: "column", gap: "12px" }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
-          variant="label"
-          component="h2"
-          sx={{
-            color: "var(--ink-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            flex: 1,
-          }}
-        >
-          Managers
-        </Typography>
+        <SectionLabel sx={{ flex: 1 }}>Managers</SectionLabel>
         <ErrorLabel message={updateTournament.error?.message} />
         <Typography variant="stat" sx={{ color: "var(--ink-muted)" }}>
           {tournament.members.length}/{MAX_MANAGERS}
@@ -266,17 +258,36 @@ export default function SettingsTab({
 }: {
   tournament: Tournament;
 }) {
+  const [selectedStageId, setSelectedStageId] = useState<number>();
+  const selectedStage =
+    tournament.stages.find((stage) => stage.id === selectedStageId) ??
+    tournament.stages[0];
   return (
     <Box
       sx={{
-        maxWidth: 430,
-        display: "flex",
-        flexDirection: "column",
+        display: "grid",
+        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
         gap: "16px",
+        alignItems: "start",
       }}
     >
-      <ManagersSection tournament={tournament} />
-      <DraftSection tournament={tournament} />
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <ManagersSection tournament={tournament} />
+        <DraftSection tournament={tournament} />
+      </Box>
+      <StagesSection
+        stages={tournament.stages}
+        selectedStageId={selectedStage?.id}
+        onSelect={setSelectedStageId}
+        sx={{ gridColumn: "span 2" }}
+      />
+      {selectedStage && (
+        <PoolEditor
+          tournamentId={tournament.id}
+          stage={selectedStage}
+          sx={{ gridColumn: "1 / -1" }}
+        />
+      )}
     </Box>
   );
 }
