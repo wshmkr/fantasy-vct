@@ -1,24 +1,27 @@
 // @vitest-environment jsdom
 
-import { ThemeProvider } from "@mui/material/styles";
 import { APP_PRODUCT_NAME } from "@shared/branding";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import App from "./App";
-import theme from "./theme";
+import { makeUser, renderApp, stubApi } from "./test-utils";
 
-describe("App", () => {
-  test("renders the app title with the theme", () => {
-    render(
-      <ThemeProvider theme={theme}>
-        <MemoryRouter>
-          <App />
-        </MemoryRouter>
-      </ThemeProvider>,
-    );
+describe("App shell", () => {
+  test("a logged-in user sees the site logo and the home page", async () => {
+    stubApi({ "GET /api/me": () => ({ status: 200, body: makeUser() }) });
+    renderApp("/");
     expect(
-      screen.getByRole("heading", { level: 1, name: APP_PRODUCT_NAME }),
+      await screen.findByRole("heading", { name: "Tournaments" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: `${APP_PRODUCT_NAME} home` }),
+    ).toHaveAttribute("href", "/");
+  });
+
+  test("an unauthenticated user is sent to the Discord login", async () => {
+    stubApi({ "GET /api/me": () => ({ status: 401 }) });
+    renderApp("/");
+    expect(
+      await screen.findByRole("link", { name: "Log in with Discord" }),
+    ).toHaveAttribute("href", "/api/auth/discord");
   });
 });

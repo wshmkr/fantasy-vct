@@ -24,6 +24,7 @@
     "format": "biome format --write",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
+    "seed:dev": "tsx src/server/db/seed-dev.ts",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {

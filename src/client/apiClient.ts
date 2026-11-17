@@ -28,6 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiClientError(res.status, message);
   }
 
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -38,4 +39,5 @@ export const apiClient = {
       method: "POST",
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
+  delete: <T = void>(path: string) => request<T>(path, { method: "DELETE" }),
 };

@@ -53,6 +53,12 @@ export interface User {
   firstLoginAt: string | null;
 }
 
+export function displayNameOf(
+  user: Pick<User, "displayName" | "discordUsername">,
+): string {
+  return user.displayName ?? user.discordUsername;
+}
+
 export interface Team {
   id: number;
   name: string;

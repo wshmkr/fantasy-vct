@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface HealthResponse {
   ok: boolean;
   uptimeSeconds: number;
@@ -16,6 +18,8 @@ export const API_ROUTES = {
   authDiscord: "/api/auth/discord",
   authDiscordCallback: "/api/auth/discord/callback",
   authDev: "/api/auth/dev",
+  authDevUsers: "/api/auth/dev/users",
+  authLogout: "/api/auth/logout",
   members: "/api/members",
   member: (userId: Id) => `/api/members/${userId}`,
   tournaments: "/api/tournaments",
@@ -37,3 +41,15 @@ export const API_ROUTES = {
   draftStream: (stageId: Id) => `/api/stages/${stageId}/draft/stream`,
   image: (imageId: Id) => `/api/images/${imageId}`,
 } as const;
+
+export const devLoginBodySchema = z.object({ userId: z.number().int() });
+
+export const addMemberBodySchema = z.object({
+  discordUsername: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .transform((username) => username.replace(/^@/, ""))
+    .pipe(z.string().min(1)),
+});
+export type AddMemberBody = z.input<typeof addMemberBodySchema>;

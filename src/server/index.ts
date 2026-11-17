@@ -1,7 +1,12 @@
 import { APP_PRODUCT_NAME } from "../shared/branding.js";
 import { createApp } from "./app.js";
+import { upsertCommissioner } from "./auth/access.js";
 import { db } from "./db/client.js";
 import { env } from "./env.js";
+
+if (env.COMMISSIONER_DISCORD_USERNAME) {
+  upsertCommissioner(env.COMMISSIONER_DISCORD_USERNAME);
+}
 
 const app = createApp();
 

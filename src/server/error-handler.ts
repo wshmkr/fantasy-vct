@@ -22,15 +22,14 @@ export function errorHandler(
   res: Response<ApiError>,
   _next: NextFunction,
 ): void {
-  if (env.NODE_ENV !== "test") {
-    console.error(err);
-  }
-
   if (err instanceof HttpError) {
     res.status(err.status).json({ error: err.message });
     return;
   }
 
+  if (env.NODE_ENV !== "test") {
+    console.error(err);
+  }
   res.status(500).json({
     error:
       env.NODE_ENV === "production" ? "Internal Server Error" : err.message,

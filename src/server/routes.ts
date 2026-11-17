@@ -1,5 +1,12 @@
 import { type Request, type Response, Router } from "express";
 import type { HealthResponse } from "../shared/api.js";
+import type { User } from "../shared/entities.js";
+import { requireUser } from "./auth/access.js";
+import { devLoginRouter } from "./auth/dev-login.js";
+import { createDiscordRouter } from "./auth/discord.js";
+import { clearSessionCookie } from "./auth/session.js";
+import { env } from "./env.js";
+import { membersRouter } from "./routes/members.js";
 
 const startedAt = new Date();
 
@@ -12,3 +19,23 @@ apiRouter.get("/health", (_req: Request, res: Response<HealthResponse>) => {
     startedAt: startedAt.toISOString(),
   });
 });
+
+if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
+  apiRouter.use(
+    createDiscordRouter(env.DISCORD_CLIENT_ID, env.DISCORD_CLIENT_SECRET),
+  );
+}
+if (env.DEV_LOGIN) {
+  apiRouter.use(devLoginRouter);
+}
+
+apiRouter.post("/auth/logout", (_req, res) => {
+  clearSessionCookie(res);
+  res.status(204).end();
+});
+
+apiRouter.get("/me", requireUser, (_req, res: Response<User>) => {
+  res.json(res.locals.user);
+});
+
+apiRouter.use(membersRouter);

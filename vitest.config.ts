@@ -8,7 +8,15 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    env: { DATABASE_PATH: ":memory:" },
+    env: {
+      DATABASE_PATH: ":memory:",
+      SESSION_SECRET: "test-session-secret-0123456789",
+      BASE_URL: "http://localhost:5173",
+      COMMISSIONER_DISCORD_USERNAME: "commish",
+      DISCORD_CLIENT_ID: "test-client-id",
+      DISCORD_CLIENT_SECRET: "test-client-secret",
+      DEV_LOGIN: "true",
+    },
     setupFiles: ["src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
@@ -22,6 +30,8 @@ export default defineConfig({
         "src/client/theme.ts",
         "src/client/assets.d.ts",
         "src/server/index.ts",
+        "src/server/db/seed-dev.ts",
+        "src/server/test-utils.ts",
       ],
     },
   },
