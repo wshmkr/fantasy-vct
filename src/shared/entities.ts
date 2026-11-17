@@ -131,16 +131,17 @@ export interface Tournament {
   matchesTotal: number;
 }
 
-export interface RosterEntry {
-  userId: number;
-  pickableId: number;
-}
+export const ROSTER_LIMITS: Record<PickableKind, number> = {
+  player: 5,
+  coach: 1,
+};
 
 export interface DraftSeat {
   seat: number;
   user: User;
   color: ManagerColor;
   locked: boolean;
+  rosterPickableIds: number[];
 }
 
 export interface DraftAction {
@@ -162,8 +163,9 @@ export interface DraftState {
   status: StageStatus;
   phase: DraftPhase;
   round: number;
+  turnNo: number;
+  pickSeconds: number;
   seats: DraftSeat[];
-  rosters: RosterEntry[];
   pool: PoolPickable[];
   teams: Team[];
   currentSeat: number | null;
@@ -171,6 +173,15 @@ export interface DraftState {
   serverNow: string;
   recentActions: DraftAction[];
 }
+
+export const DRAFT_CONTROLS = [
+  "shuffle",
+  "start",
+  "pause",
+  "resume",
+  "undo",
+] as const;
+export type DraftControl = (typeof DRAFT_CONTROLS)[number];
 
 export const IMPORT_PHASES = ["event", "teams", "players"] as const;
 export type ImportPhase = (typeof IMPORT_PHASES)[number];

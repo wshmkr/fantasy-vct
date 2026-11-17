@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  type DraftControl,
   MANAGER_COLORS,
   MAX_PICK_SECONDS,
   MIN_PICK_SECONDS,
@@ -46,6 +47,8 @@ export const API_ROUTES = {
   draft: (stageId: Id) => `/api/stages/${stageId}/draft`,
   draftActions: (stageId: Id) => `/api/stages/${stageId}/draft/actions`,
   draftStream: (stageId: Id) => `/api/stages/${stageId}/draft/stream`,
+  draftControl: (stageId: Id, control: DraftControl) =>
+    `/api/stages/${stageId}/draft/${control}`,
   importJob: (importId: Id) => `/api/imports/${importId}`,
   image: (imageId: Id) => `/api/images/${imageId}`,
 } as const;
@@ -111,3 +114,21 @@ export type UpdateStageBody = z.input<typeof updateStageBodySchema>;
 
 export const updatePoolEntryBodySchema = z.object({ removed: z.boolean() });
 export type UpdatePoolEntryBody = z.input<typeof updatePoolEntryBodySchema>;
+
+const onBehalfOf = z.number().int().optional();
+
+export const draftActionBodySchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("pick"),
+    pickableId: z.number().int(),
+    onBehalfOf,
+  }),
+  z.object({
+    action: z.literal("swap"),
+    pickableOutId: z.number().int(),
+    pickableInId: z.number().int(),
+    onBehalfOf,
+  }),
+  z.object({ action: z.literal("lock"), onBehalfOf }),
+]);
+export type DraftActionBody = z.input<typeof draftActionBodySchema>;

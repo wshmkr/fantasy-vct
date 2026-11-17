@@ -10,18 +10,10 @@ import { db } from "../db/client.js";
 import { pickables, stagePool, stages, teams } from "../db/schema.js";
 import { HttpError } from "../error-handler.js";
 import { toPickable } from "../pickables.js";
-
-type StageRow = typeof stages.$inferSelect;
+import { findStage, requireSetup, type StageRow } from "../stages.js";
 
 function findSetupStage(stageId: unknown): StageRow {
-  const row = db
-    .select()
-    .from(stages)
-    .where(eq(stages.id, Number(stageId)))
-    .get();
-  if (!row) throw new HttpError(404, "Not found");
-  if (row.status !== "setup") throw new HttpError(400, "Draft started");
-  return row;
+  return requireSetup(findStage(Number(stageId)));
 }
 
 export const stagesRouter = Router();

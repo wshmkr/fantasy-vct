@@ -6,6 +6,7 @@ import { devLoginRouter } from "./auth/dev-login.js";
 import { createDiscordRouter } from "./auth/discord.js";
 import { clearSessionCookie } from "./auth/session.js";
 import { env } from "./env.js";
+import { draftRouter } from "./routes/draft.js";
 import { imagesRouter } from "./routes/images.js";
 import { importsRouter } from "./routes/imports.js";
 import { membersRouter } from "./routes/members.js";
@@ -45,5 +46,6 @@ apiRouter.get("/me", requireUser, (_req, res: Response<User>) => {
 apiRouter.use(membersRouter);
 apiRouter.use(tournamentsRouter);
 apiRouter.use(stagesRouter);
+apiRouter.use(draftRouter);
 apiRouter.use(importsRouter);
 apiRouter.use(imagesRouter);

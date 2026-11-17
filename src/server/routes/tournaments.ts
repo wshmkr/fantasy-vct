@@ -14,7 +14,7 @@ import {
   type Tournament,
   type TournamentStatus,
 } from "../../shared/entities.js";
-import { requireCommissioner, requireUser, toUser } from "../auth/access.js";
+import { requireCommissioner, requireUser } from "../auth/access.js";
 import { db } from "../db/client.js";
 import {
   matches,
@@ -24,11 +24,11 @@ import {
   tournamentMembers,
   tournaments,
   tournamentTeams,
-  users,
 } from "../db/schema.js";
 import { HttpError } from "../error-handler.js";
 import { toPickable } from "../pickables.js";
 import { toStage } from "../stages.js";
+import { tournamentMembersOf } from "../tournament-members.js";
 import { importEvent, reimportTournament } from "../vlr/import.js";
 import { startImportJob } from "./imports.js";
 
@@ -58,13 +58,6 @@ function toTournament(row: TournamentRow): Tournament {
     .where(eq(stages.tournamentId, row.id))
     .orderBy(asc(stages.position))
     .all();
-  const memberRows = db
-    .select({ user: users, color: tournamentMembers.color })
-    .from(tournamentMembers)
-    .innerJoin(users, eq(users.id, tournamentMembers.userId))
-    .where(eq(tournamentMembers.tournamentId, row.id))
-    .orderBy(asc(tournamentMembers.joinedAt))
-    .all();
   const matchStatuses = db
     .select({ status: matches.status })
     .from(matches)
@@ -89,10 +82,7 @@ function toTournament(row: TournamentRow): Tournament {
       matchStatuses,
     ),
     stages: stageRows.map(toStage),
-    members: memberRows.map(({ user, color }) => ({
-      user: toUser(user),
-      color,
-    })),
+    members: tournamentMembersOf(row.id),
     teamCount,
     matchesPlayed: matchStatuses.filter((s) => s === "completed").length,
     matchesTotal: matchStatuses.length,

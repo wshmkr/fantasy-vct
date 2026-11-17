@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, test, vi } from "vitest";
 import type { Stage, StagePoolTeam } from "../../shared/entities.js";
 import { db } from "../db/client.js";
 import { stagePool, stages } from "../db/schema.js";
-import { draftablePickableIds } from "../draft/pool.js";
+import { draftPool } from "../draft/pool.js";
 import { importAndWait, insertUser, loginAs } from "../test-utils.js";
 import { FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
 
@@ -15,6 +15,9 @@ vi.mock("../vlr/fetch.js", async (importOriginal) => {
     vlrDownloader: createFakeVlr().download,
   };
 });
+
+const draftPoolIds = (stageId: number) =>
+  draftPool(stageId).map((entry) => entry.pickableId);
 
 let commissioner: TestAgent;
 let member: TestAgent;
@@ -85,14 +88,14 @@ describe("stages API", () => {
       id: pickableId,
       removed: true,
     });
-    expect(draftablePickableIds(stage.id)).not.toContain(pickableId);
+    expect(draftPoolIds(stage.id)).not.toContain(pickableId);
     expect((await firstStage()).poolSize).toBe(stage.poolSize - 1);
 
     await commissioner
       .patch(`${poolPath}/${pickableId}`)
       .send({ removed: false })
       .expect(204);
-    expect(draftablePickableIds(stage.id)).toContain(pickableId);
+    expect(draftPoolIds(stage.id)).toContain(pickableId);
   });
 
   test("members get 403", async () => {
