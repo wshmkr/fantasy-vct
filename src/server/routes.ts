@@ -1,13 +1,9 @@
 import { type Request, type Response, Router } from "express";
-import type { HealthResponse, PingResponse } from "../shared/api.js";
+import type { HealthResponse } from "../shared/api.js";
 
 const startedAt = new Date();
 
 export const apiRouter = Router();
-
-apiRouter.get("/ping", (_req: Request, res: Response<PingResponse>) => {
-  res.json({ message: "pong", timestamp: new Date().toISOString() });
-});
 
 apiRouter.get("/health", (_req: Request, res: Response<HealthResponse>) => {
   res.json({

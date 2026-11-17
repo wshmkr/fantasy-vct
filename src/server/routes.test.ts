@@ -5,13 +5,6 @@ import { createApp } from "./app.js";
 describe("api routes", () => {
   const app = createApp();
 
-  test("GET /api/ping returns pong", async () => {
-    const res = await request(app).get("/api/ping");
-    expect(res.status).toBe(200);
-    expect(res.body.message).toBe("pong");
-    expect(typeof res.body.timestamp).toBe("string");
-  });
-
   test("GET /api/health returns ok", async () => {
     const res = await request(app).get("/api/health");
     expect(res.status).toBe(200);

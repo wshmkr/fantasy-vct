@@ -1,10 +1,14 @@
+import dotenv from "dotenv";
 import { z } from "zod";
+
+dotenv.config({ quiet: true });
 
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
   PORT: z.coerce.number().int().positive().default(3001),
+  DATABASE_PATH: z.string().default("./data/app.db"),
   CORS_ORIGINS: z
     .string()
     .default("")

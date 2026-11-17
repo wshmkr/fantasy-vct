@@ -8,6 +8,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: { DATABASE_PATH: ":memory:" },
     setupFiles: ["src/test-setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     coverage: {

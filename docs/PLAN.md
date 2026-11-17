@@ -114,7 +114,7 @@ There will be **fewer than 10 users, all friends**. Problems get solved by talki
 
 **Subagents:** spawn every implementation subagent with the Agent tool using **`model: "opus"` and `effort: "medium"`** (Opus 5.5, medium effort). One package per subagent. Run packages in parallel only when §6 marks them parallel-safe.
 
-1. **Prepare.** Create the package's worktree and branch, for example `git worktree add ../fv-<pkg> -b feat/<summary> main`.
+1. **Prepare.** Create the package's worktree and branch, for example `git worktree add .claude/worktrees/<pkg> -b feat/<summary> main`.
 2. **Brief** the subagent with:
    - the package section from §6, copied in full
    - the relevant parts of §3 to §5
