@@ -13,6 +13,9 @@ export interface ParsedTeamPage {
   headCoach: ParsedPerson | null;
 }
 
+// Subs are left out of the draft pool; substitutions get handled later from match data.
+const benchedRoles = ["sub", "inactive"];
+
 export function parseTeamPage(html: string): ParsedTeamPage {
   const $ = cheerio.load(html);
   const players: ParsedPerson[] = [];
@@ -45,7 +48,7 @@ export function parseTeamPage(html: string): ParsedTeamPage {
             .trim(),
           vlrUrl: absoluteVlrUrl(href),
         };
-        if (section === "players" && !role.includes("inactive")) {
+        if (section === "players" && !benchedRoles.includes(role)) {
           players.push(person);
         } else if (section === "staff" && role === "head coach") {
           headCoach ??= person;

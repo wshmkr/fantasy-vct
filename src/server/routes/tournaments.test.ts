@@ -26,7 +26,7 @@ beforeAll(async () => {
     vlrEventUrl: "vlr.gg/event/3124/spike-series-2026-convergence-emea-dach/",
   });
   tournamentId = job.tournamentId;
-  expect(job.progress.players).toMatchObject({ done: 12, total: 12 });
+  expect(job.progress.players).toMatchObject({ done: 11, total: 11 });
 });
 
 describe("tournaments API", () => {

@@ -816,6 +816,7 @@ This is here only so Checkpoint 1's schema doesn't block it.
   - Acceptance: re-score VCT Challengers NA 2024 Split 1 and match the spreadsheet (**mada = 755**, **Reduxx = 601**).
   - The spreadsheet is at `/mnt/c/Users/sxc/Downloads/VCT Challengers NA 2024 Split 1 Fantasy.xlsx`. It's a downloaded file: copy it to a scratch directory and read it with `python -I` and openpyxl.
 - **Coach scoring** from team results: the formula needs deciding with the user.
+- **Substitutions.** Subs are left out of the pool at import. When a sub plays instead of a drafted player, work out the replacement from match data. The rules need deciding with the user.
 - Sanity checks on scraped stats, with manual stat entry as the fallback when a scrape fails.
 - Standings on tournament cards and pages, plus players and matches views, kept visual and minimal-text.
 

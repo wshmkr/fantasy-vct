@@ -50,7 +50,7 @@ describe("importEvent", () => {
     expect(rowCounts(db)).toMatchObject({
       teams: 16,
       tournamentTeams: 16,
-      pickables: 11 + 16,
+      pickables: 10 + 16,
       stages: 2,
       matches: 70,
     });
@@ -163,7 +163,7 @@ describe("importEvent", () => {
           sizes.set(row.stageId, (sizes.get(row.stageId) ?? 0) + 1),
         new Map<number, number>(),
       );
-    expect([...poolSizes.values()]).toEqual([27, 27]);
+    expect([...poolSizes.values()]).toEqual([26, 26]);
   });
 
   test("importing again is idempotent and uses the cache", async () => {
@@ -236,6 +236,6 @@ describe("importEvent", () => {
         stagePool,
         and(eq(stagePool.stageId, playoffs.id), eq(stagePool.removed, true)),
       ),
-    ).toBe(27);
+    ).toBe(26);
   });
 });
