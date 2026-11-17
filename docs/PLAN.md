@@ -851,8 +851,8 @@ This is here only so Checkpoint 1's schema doesn't block it.
 
 Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 
-- [ ] 1.0 Scaffold
-- [ ] 1.1 Database, shared entities and theme
+- [x] 1.0 Scaffold (commit 83748bf)
+- [x] 1.1 Database, shared entities and theme (commit e4f04a2)
 - [ ] 1.2 Access, auth and app shell
 - [ ] 1.3 VLR import
 - [ ] 1.4 Tournaments, teams and settings
