@@ -856,7 +856,7 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] 1.2 Access, auth and app shell (commit 777f8f0)
 - [x] 1.3 VLR import (commit bad2d5f)
 - [x] 1.4 Tournaments, teams and settings (commit 0f416f6)
-- [ ] 1.5 Stage admin and pools
+- [x] 1.5 Stage admin and pools (commit e552215)
 - [ ] 1.6 Draft engine, server
 - [ ] 1.7 Draft room, client
 - [ ] 1.8 Rosters and polish
