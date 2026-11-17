@@ -16,7 +16,7 @@ export default function EventLogo({ imageId, size }: EventLogoProps) {
         borderRadius: `${Math.round(size * 0.27)}px`,
         bgcolor: "#ffffff14",
         border: "1px solid #ffffff2e",
-        boxShadow: "inset 0 1px 0 #ffffff33, 0 10px 30px #00000066",
+        boxShadow: "inset 0 1px 0 var(--pane-highlight), 0 10px 30px #00000066",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

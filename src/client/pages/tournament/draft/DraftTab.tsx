@@ -13,6 +13,7 @@ import {
 import { Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import Pane from "../../../components/Pane";
+import SegmentedControl from "../../../components/SegmentedControl";
 import { useDraft, useDraftCommand, useDraftStream } from "../../../draft";
 import { useInvalidateTournaments } from "../../../tournaments";
 import { useMe } from "../../../useMe";
@@ -23,10 +24,10 @@ import {
   PhaseDots,
   PrimaryAction,
   RejectionLabel,
-  StagePills,
 } from "./ClockBar";
 import DraftBoard from "./DraftBoard";
 import DraftPool from "./DraftPool";
+import { draftLookups } from "./draftView";
 import RecentActions from "./RecentActions";
 import { useSecondsLeft } from "./useSecondsLeft";
 
@@ -35,7 +36,7 @@ const FULL_ROSTER_SIZE = ROSTER_LIMITS.player + ROSTER_LIMITS.coach;
 // Tall enough for about eight pool rows even when few managers make the board short.
 const MIN_POOL_HEIGHT = 470;
 
-function defaultStageId(stages: Stage[]): number | undefined {
+function defaultDraftStageId(stages: Stage[]): number | undefined {
   const live = stages.find((stage) => isDraftRunning(stage.status));
   const upcoming = stages.find((stage) => stage.status === "setup");
   return (live ?? upcoming ?? stages[0])?.id;
@@ -44,7 +45,7 @@ function defaultStageId(stages: Stage[]): number | undefined {
 export default function DraftTab({ tournament }: { tournament: Tournament }) {
   const me = useMe();
   const [stageId, setStageId] = useState(() =>
-    defaultStageId(tournament.stages),
+    defaultDraftStageId(tournament.stages),
   );
   if (stageId === undefined || !me.data) return null;
   return (
@@ -147,8 +148,7 @@ function DraftRoom({
       ? swapOutId
       : null;
 
-  const pickablesById = new Map(draft.pool.map((p) => [p.id, p]));
-  const teamLogos = new Map(draft.teams.map((t) => [t.id, t.logoImageId]));
+  const { pickablesById, teamLogos } = draftLookups(draft);
   const onBehalfOf = actingAsUserId ?? undefined;
 
   const act = (action: DraftActionBody) =>
@@ -179,10 +179,15 @@ function DraftRoom({
           minHeight: 56,
         }}
       >
-        <StagePills
-          stages={stages}
-          selectedStageId={stageId}
+        <SegmentedControl
+          segments={stages.map((stage) => ({
+            key: stage.id,
+            label: stage.name,
+          }))}
+          selectedKey={stageId}
           onSelect={onStageChange}
+          ariaLabel="Stage"
+          inPane
         />
         <Box
           sx={{

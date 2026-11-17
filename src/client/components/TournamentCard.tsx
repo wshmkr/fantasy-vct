@@ -27,7 +27,7 @@ function CardHeader({ tournament }: { tournament: Tournament }) {
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        borderBottom: "1px solid #ffffff12",
+        borderBottom: "1px solid var(--pane-edge)",
       }}
     >
       {tournament.logoImageId !== null && (

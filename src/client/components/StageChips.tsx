@@ -18,7 +18,7 @@ export default function StageChips({ stages }: { stages: Stage[] }) {
                 fontWeight: 500,
                 bgcolor: "var(--pane)",
                 color: "var(--ink-muted)",
-                boxShadow: "inset 0 0 0 1px #ffffff14",
+                boxShadow: "inset 0 0 0 1px var(--pane-edge)",
                 "& .MuiChip-label": { px: "10px" },
               },
               isCurrent && {

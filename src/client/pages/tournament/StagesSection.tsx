@@ -191,7 +191,7 @@ function PoolTeamCard({
         p: 1,
         borderRadius: "10px",
         bgcolor: "var(--pane)",
-        boxShadow: "inset 0 0 0 1px #ffffff12",
+        boxShadow: "inset 0 0 0 1px var(--pane-edge)",
       }}
     >
       <Box

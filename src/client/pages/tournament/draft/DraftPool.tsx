@@ -14,16 +14,13 @@ import {
   Search,
   User,
 } from "lucide-react";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import Pane from "../../../components/Pane";
 import { CoachBadge } from "../../../components/PlayerChip";
 import PlayerPhoto from "../../../components/PlayerPhoto";
+import SegmentedControl, {
+  type Segment,
+} from "../../../components/SegmentedControl";
 import TeamLogo from "../../../components/TeamLogo";
 import {
   availablePool,
@@ -42,9 +39,9 @@ const POOL_GRID = {
   px: "8px",
 };
 
-const KIND_OPTIONS: { kind: PickableKind; label: string; icon: ReactNode }[] = [
-  { kind: "player", label: "Players", icon: <User size={14} /> },
-  { kind: "coach", label: "Coaches", icon: <GraduationCap size={14} /> },
+const KIND_SEGMENTS: Segment<PickableKind>[] = [
+  { key: "player", label: "Players", Icon: User },
+  { key: "coach", label: "Coaches", Icon: GraduationCap },
 ];
 
 const COLUMNS: { key: PoolSortKey; label: string }[] = [
@@ -56,70 +53,6 @@ const COLUMNS: { key: PoolSortKey; label: string }[] = [
 
 function formatStat(value: number | null, digits: number): string {
   return value === null ? "" : value.toFixed(digits);
-}
-
-function KindToggle({
-  kind,
-  onChange,
-}: {
-  kind: PickableKind;
-  onChange: (kind: PickableKind) => void;
-}) {
-  return (
-    <Box
-      role="radiogroup"
-      aria-label="Kind"
-      sx={{
-        display: "inline-flex",
-        flex: "none",
-        gap: "2px",
-        p: "2px",
-        borderRadius: "var(--radius-md)",
-        bgcolor: "#00000040",
-        boxShadow: "inset 0 0 0 1px #ffffff12",
-      }}
-    >
-      {KIND_OPTIONS.map((option) => {
-        const isSelected = option.kind === kind;
-        return (
-          <Tooltip key={option.kind} title={option.label}>
-            <Box
-              component="button"
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              aria-label={option.label}
-              onClick={() => onChange(option.kind)}
-              sx={[
-                {
-                  width: 34,
-                  height: 30,
-                  border: 0,
-                  borderRadius: "var(--radius-sm)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "var(--ink-muted)",
-                  bgcolor: "transparent",
-                  transition: "background-color 150ms ease-out, color 150ms",
-                  "&:hover": { color: "var(--ink)" },
-                },
-                isSelected && {
-                  color: "var(--ink)",
-                  bgcolor: "#ffffff17",
-                  boxShadow:
-                    "inset 1px 1px 0 #ffffff47, inset 0 0 0 1px #ffffff1a, 0 4px 12px #00000066",
-                },
-              ]}
-            >
-              {option.icon}
-            </Box>
-          </Tooltip>
-        );
-      })}
-    </Box>
-  );
 }
 
 function TeamToggles({
@@ -154,7 +87,7 @@ function TeamToggles({
                   height: 30,
                   borderRadius: "var(--radius-sm)",
                   bgcolor: "#ffffff08",
-                  boxShadow: "inset 0 0 0 1px #ffffff12",
+                  boxShadow: "inset 0 0 0 1px var(--pane-edge)",
                   opacity: selectedTeamIds.size > 0 ? 0.55 : 1,
                   transition: "opacity 150ms ease-out, background-color 150ms",
                   "&:hover": { opacity: 1 },
@@ -162,7 +95,7 @@ function TeamToggles({
                 isSelected && {
                   opacity: 1,
                   bgcolor: "#ffffff1f",
-                  boxShadow: "inset 0 0 0 1px #ffffff47",
+                  boxShadow: "inset 0 0 0 1px var(--pane-highlight)",
                 },
               ]}
             >
@@ -187,7 +120,7 @@ function SortHeader({
       sx={{
         ...POOL_GRID,
         pb: "8px",
-        borderBottom: "1px solid #ffffff12",
+        borderBottom: "1px solid var(--pane-edge)",
       }}
     >
       {COLUMNS.map((column) => {
@@ -258,7 +191,7 @@ function PoolRow({
           borderRadius: "var(--radius-md)",
           transition: "background-color 150ms ease-out",
           "& .vlr-link": { opacity: 0, transition: "opacity 150ms ease-out" },
-          "&:hover": { bgcolor: "#ffffff0a" },
+          "&:hover": { bgcolor: "var(--pane-hover)" },
           "&:hover .vlr-link, & .vlr-link:focus-visible": { opacity: 1 },
         },
         onSelect !== undefined && { cursor: "pointer" },
@@ -498,7 +431,14 @@ export default function DraftPool({
           }
           sx={{ flex: 1, minWidth: 0, height: 34, px: "10px", fontSize: 13 }}
         />
-        <KindToggle kind={kind} onChange={onKindChange} />
+        <SegmentedControl
+          segments={KIND_SEGMENTS}
+          selectedKey={kind}
+          onSelect={onKindChange}
+          ariaLabel="Kind"
+          inPane
+          iconOnly
+        />
       </Box>
       <TeamToggles
         teams={teams}

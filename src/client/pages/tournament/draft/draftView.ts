@@ -1,4 +1,38 @@
-import type { PickableKind, PoolPickable } from "@shared/entities";
+import {
+  type DraftSeat,
+  type DraftState,
+  type PickableKind,
+  type PoolPickable,
+  ROSTER_LIMITS,
+} from "@shared/entities";
+
+export const PLAYER_SLOTS = Array.from(
+  { length: ROSTER_LIMITS.player },
+  (_, slot) => slot,
+);
+
+export function draftLookups(draft: DraftState): {
+  pickablesById: ReadonlyMap<number, PoolPickable>;
+  teamLogos: ReadonlyMap<number, number | null>;
+} {
+  return {
+    pickablesById: new Map(draft.pool.map((p) => [p.id, p])),
+    teamLogos: new Map(draft.teams.map((t) => [t.id, t.logoImageId])),
+  };
+}
+
+export function seatRoster(
+  seat: DraftSeat,
+  pickablesById: ReadonlyMap<number, PoolPickable>,
+) {
+  const roster = seat.rosterPickableIds.flatMap(
+    (id) => pickablesById.get(id) ?? [],
+  );
+  return {
+    players: roster.filter((pickable) => pickable.kind === "player"),
+    coach: roster.find((pickable) => pickable.kind === "coach"),
+  };
+}
 
 export type PoolSortKey = "handle" | "formRating" | "formAcs" | "formKd";
 

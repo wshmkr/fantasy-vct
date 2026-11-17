@@ -25,7 +25,7 @@ function MatchesPill({ tournament }: { tournament: Tournament }) {
           py: "6px",
           borderRadius: "var(--radius-md)",
           bgcolor: "var(--pane)",
-          boxShadow: "inset 0 0 0 1px #ffffff12",
+          boxShadow: "inset 0 0 0 1px var(--pane-edge)",
         }}
       >
         <Calendar size={15} color="var(--ink-muted)" aria-hidden />

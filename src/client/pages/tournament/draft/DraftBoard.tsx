@@ -16,6 +16,7 @@ import ManagerAvatar from "../../../components/ManagerAvatar";
 import Pane from "../../../components/Pane";
 import PlayerPhoto from "../../../components/PlayerPhoto";
 import { GlowingAvatar } from "./ClockBar";
+import { PLAYER_SLOTS, seatRoster } from "./draftView";
 import { flipIn, riseIn } from "./motion";
 import { useSecondsLeft } from "./useSecondsLeft";
 
@@ -26,7 +27,6 @@ const ROW_GRID = {
   alignItems: "center",
   px: "8px",
 };
-const PLAYER_SLOTS = Array.from({ length: ROSTER_LIMITS.player }, (_, i) => i);
 const COACH_GAP = "6px";
 
 type CellHighlight = "next" | "selected" | null;
@@ -81,7 +81,7 @@ function BoardCell({
           borderRadius: "var(--radius-sm)",
           color: "var(--ink)",
           bgcolor: "#ffffff03",
-          boxShadow: "inset 0 0 0 1px #ffffff1a",
+          boxShadow: "inset 0 0 0 1px var(--pane-edge)",
           perspective: 300,
           transition: "box-shadow 150ms ease-out, background-color 150ms",
         },
@@ -234,11 +234,7 @@ export default function DraftBoard({
         </Box>
       </Box>
       {draft.seats.map((seat) => {
-        const roster = seat.rosterPickableIds.flatMap(
-          (id) => pickablesById.get(id) ?? [],
-        );
-        const players = roster.filter((p) => p.kind === "player");
-        const coach = roster.find((p) => p.kind === "coach");
+        const { players, coach } = seatRoster(seat, pickablesById);
         const isOnClock =
           isDraftRunning(draft.status) && seat.seat === draft.currentSeat;
         const nextSlot =

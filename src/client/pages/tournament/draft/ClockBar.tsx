@@ -11,7 +11,6 @@ import {
   type DraftState,
   displayNameOf,
   isDraftRunning,
-  type Stage,
 } from "@shared/entities";
 import { DRAFT_ROUNDS } from "@shared/snake";
 import {
@@ -25,6 +24,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import ErrorLabel from "../../../components/ErrorLabel";
+import LiquidLens, { useLensRect } from "../../../components/LiquidLens";
 import ManagerAvatar from "../../../components/ManagerAvatar";
 import SmallIconButton from "../../../components/SmallIconButton";
 import { formatClock } from "./draftView";
@@ -37,70 +37,8 @@ import {
 import { FINAL_SECONDS } from "./useSecondsLeft";
 
 const CONTROL_SIZE = 32;
-
-export function StagePills({
-  stages,
-  selectedStageId,
-  onSelect,
-}: {
-  stages: Stage[];
-  selectedStageId: number;
-  onSelect: (stageId: number) => void;
-}) {
-  return (
-    <Box
-      role="tablist"
-      aria-label="Stage"
-      sx={{
-        display: "inline-flex",
-        flex: "none",
-        gap: "3px",
-        p: "3px",
-        borderRadius: "var(--radius-md)",
-        bgcolor: "#00000033",
-        boxShadow: "inset 0 0 0 1px #ffffff12",
-      }}
-    >
-      {stages.map((stage) => {
-        const isSelected = stage.id === selectedStageId;
-        return (
-          <Box
-            key={stage.id}
-            component="button"
-            type="button"
-            role="tab"
-            aria-selected={isSelected}
-            onClick={() => onSelect(stage.id)}
-            sx={[
-              {
-                px: "11px",
-                py: "5px",
-                border: 0,
-                borderRadius: "7px",
-                font: "inherit",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "var(--ink-muted)",
-                bgcolor: "transparent",
-                cursor: "pointer",
-                transition: "background-color 150ms ease-out, color 150ms",
-                "&:hover": { color: "var(--ink)" },
-              },
-              isSelected && {
-                color: "var(--ink)",
-                bgcolor: "#ffffff17",
-                boxShadow:
-                  "inset 1px 1px 0 #ffffff47, inset 0 0 0 1px #ffffff1a, 0 4px 12px #00000066",
-              },
-            ]}
-          >
-            {stage.name}
-          </Box>
-        );
-      })}
-    </Box>
-  );
-}
+// The lens (z 2) refracts the countdown; the plain fallback pill (z 0) must stay under it.
+const ABOVE_FALLBACK_PILL = { position: "relative", zIndex: 1 } as const;
 
 export function GlowingAvatar({
   seat,
@@ -140,10 +78,29 @@ export function OnTheClock({
   isActorsTurn: boolean;
 }) {
   const isFinalSeconds = secondsLeft !== null && secondsLeft <= FINAL_SECONDS;
+  const { containerRef, rect } = useLensRect<HTMLDivElement>();
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: "14px" }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        position: "relative",
+        isolation: "isolate",
+        display: "flex",
+        alignItems: "center",
+        gap: "14px",
+        py: "6px",
+        pl: "6px",
+        pr: "16px",
+        borderRadius: "var(--radius-full)",
+      }}
+    >
       <Tooltip title={displayNameOf(seat.user)}>
-        <Box aria-label="On the clock" role="img">
+        {/* Above the lens: refracting the glow ring would smear the on-the-clock cue. */}
+        <Box
+          aria-label="On the clock"
+          role="img"
+          sx={{ position: "relative", zIndex: 3 }}
+        >
           <GlowingAvatar seat={seat} size={30} secondsLeft={secondsLeft} />
         </Box>
       </Tooltip>
@@ -154,6 +111,7 @@ export function OnTheClock({
             color="var(--ink-muted)"
             aria-label="Paused"
             role="img"
+            style={ABOVE_FALLBACK_PILL}
           />
         </Tooltip>
       ) : (
@@ -162,6 +120,7 @@ export function OnTheClock({
           role="timer"
           aria-label="Time left"
           sx={{
+            ...ABOVE_FALLBACK_PILL,
             minWidth: 52,
             fontSize: 22,
             lineHeight: "28px",
@@ -177,6 +136,7 @@ export function OnTheClock({
           {formatClock(secondsLeft)}
         </Typography>
       )}
+      <LiquidLens rect={rect} cornerRadius="pill" />
     </Box>
   );
 }
@@ -418,7 +378,7 @@ export function CommissionerControls({
         alignItems: "center",
         gap: "4px",
         pl: "10px",
-        borderLeft: "1px solid #ffffff14",
+        borderLeft: "1px solid var(--pane-edge)",
       }}
     >
       {draft.status === "setup" ? (

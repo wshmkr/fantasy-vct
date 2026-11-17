@@ -37,7 +37,7 @@ const tokenValues = new Map(
     tokens.glass,
   ].flatMap((group) => group.tokens.map(({ name, value }) => [name, value])),
 );
-const token = (name: string) => lookup(tokenValues, name);
+export const token = (name: string) => lookup(tokenValues, name);
 
 // @fontsource-variable registers the self-hosted fonts under these names.
 const fontFamilies = {
@@ -202,7 +202,7 @@ const theme = createTheme({
           padding: "0 12px",
           fontSize: 15,
           borderRadius: "var(--radius-md)",
-          backgroundColor: "#0f0f12",
+          backgroundColor: "var(--pane-dense)",
           boxShadow: "inset 0 0 0 1px var(--line)",
           "&.Mui-focused": { boxShadow: "inset 0 0 0 1px var(--accent)" },
           "&.Mui-error": { boxShadow: "inset 0 0 0 1px var(--loss)" },
