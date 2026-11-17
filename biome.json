@@ -11,7 +11,8 @@
       "!**/dist",
       "!**/node_modules",
       "!docs",
-      "!src/server/db/migrations"
+      "!src/server/db/migrations",
+      "!src/server/vlr/__fixtures__"
     ]
   },
   "formatter": {

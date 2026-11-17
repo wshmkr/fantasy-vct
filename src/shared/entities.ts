@@ -153,3 +153,9 @@ export interface DraftState {
   serverNow: string;
   recentActions: DraftAction[];
 }
+
+export interface ImportProgress {
+  phase: "event" | "teams" | "players";
+  done: number;
+  total: number;
+}
