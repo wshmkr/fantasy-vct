@@ -853,7 +853,7 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 
 - [x] 1.0 Scaffold (commit 83748bf)
 - [x] 1.1 Database, shared entities and theme (commit e4f04a2)
-- [ ] 1.2 Access, auth and app shell
+- [x] 1.2 Access, auth and app shell (commit 777f8f0)
 - [ ] 1.3 VLR import
 - [ ] 1.4 Tournaments, teams and settings
 - [ ] 1.5 Stage admin and pools
