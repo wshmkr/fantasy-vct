@@ -859,5 +859,5 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] 1.5 Stage admin and pools (commit e552215)
 - [x] 1.6 Draft engine, server (commit aeb69fc)
 - [x] 1.7 Draft room, client (commit 7abe906)
-- [ ] 1.8 Rosters and polish
+- [x] 1.8 Rosters and polish (commit bb28d5e)
 - [ ] Checkpoint 1 gate, report and re-planning notes → **stop here**
