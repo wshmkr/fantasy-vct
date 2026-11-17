@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rosters</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#09090b}
+.pane{position:relative;-webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%)}
+.pane::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff33,#ffffff1a 40%,#ffffff00 75%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.p{transition:background .15s}
+.p:hover{background:#ffffff0f}
+.num{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; font-family: Geist, Inter, system-ui, sans-serif; color: #f4f4f5; background: radial-gradient(70rem 50rem at 0% 0%, #ffb47a14, #ffb47a00 70%), radial-gradient(70rem 50rem at 100% 100%, #ff6a1a1c, #ff6a1a00 70%), #09090b;">
+  <div style="flex: 1 1 100%;">
+    <dc-import name="SiteLogo" hint-size="100%,52px"></dc-import>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 48px; box-sizing: border-box;">
+    <div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px;">
+      <dc-import name="TournamentHeader" tab="rosters" hint-size="100%,110px"></dc-import>
+
+      <div role="tablist" aria-label="Stage" style="display: inline-flex; align-self: flex-start; gap: 3px; padding: 3px; border-radius: 10px; background: #ffffff0a; box-shadow: inset 0 0 0 1px #ffffff12;">
+        <button type="button" role="tab" aria-selected="true" style="padding: 5px 11px; border-radius: 7px; border: 0; font: inherit; font-size: 13px; font-weight: 600; color: #f4f4f5; background: #ffffff17; box-shadow: inset 1px 1px 0 #ffffff47, inset 0 0 0 1px #ffffff1a, 0 4px 12px #00000066; cursor: pointer;">Stage 1</button>
+        <button type="button" role="tab" aria-selected="false" style="padding: 5px 11px; border-radius: 7px; border: 0; font: inherit; font-size: 13px; font-weight: 600; color: #a1a1aa; background: transparent; cursor: pointer;">Playoffs</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+        <sc-for list="{{managers}}" as="m" hint-placeholder-count="8">
+          <section class="pane" style="{{m.cardStyle}}">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 0 4px 10px;">
+              <span style="{{m.avatarStyle}}">{{m.initial}}</span>
+              <span style="flex: 1; font-size: 14px; font-weight: 600;">{{m.name}}</span>
+              <span title="Locked" style="color: #a1a1aa; display: flex;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px;">
+              <sc-for list="{{m.roster}}" as="p" hint-placeholder-count="6">
+                <a href="https://www.vlr.gg/" target="_blank" rel="noopener" class="p" style="display: flex; align-items: center; gap: 9px; padding: 6px; border-radius: 9px; text-decoration: none; color: #f4f4f5; min-width: 0;">
+                  <span style="position: relative; width: 30px; height: 30px; flex: none;">
+                    <svg width="30" height="30" viewBox="0 0 40 40" aria-hidden="true" style="display: block; border-radius: 50%; background: #1f1f24;"><circle cx="20" cy="16" r="7" fill="#4a4a53"></circle><path d="M5 40c1.6-9 7.6-13 15-13s13.4 4 15 13z" fill="#4a4a53"></path></svg>
+                    <span aria-hidden="true" style="position: absolute; right: -3px; bottom: -3px; width: 13px; height: 13px; border-radius: 50%; background: #09090b; box-shadow: 0 0 0 1px #ffffff2e; font-size: 6px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{p.team}}</span>
+                  </span>
+                  <span style="flex: 0 1 auto; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.handle}}</span>
+                  <sc-if value="{{p.coach}}" hint-placeholder-val="{{ false }}">
+                    <span role="img" aria-label="Coach" title="Coach" style="flex: none; width: 18px; height: 18px; border-radius: 5px; background: #ffffff14; box-shadow: inset 0 0 0 1px #ffffff26; color: #f4f4f5; display: inline-flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg></span>
+                  </sc-if>
+                </a>
+              </sc-for>
+            </div>
+          </section>
+        </sc-for>
+      </div>
+    </div>
+  </main>
+
+  <svg aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.035; pointer-events: none;"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence></filter><rect width="100%" height="100%" filter="url(#grain)"></rect></svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const data = [
+      ['Jackey', '#95deae', 'Less:L Ethan:N trent:G Cryocells:1 s0m:N', 'bzkA:L'],
+      ['Amy', '#fab0d9', 'leaf:G kiNgg:V Mazino:V tuyz:L eeiu:1', 'Leviatán Coach:V'],
+      ['Will', '#f5bf81', 'Asuna:1 mada:N jawgemo:G C0M:V JonahP:G', 'Mikes:1'],
+      ['Stephen', '#5b9ddf', 'zekken:S johnqt:S Saadhak:L brawk:N Boostio:1', 'kaplan:S'],
+      ['James', '#cfbeff', 'aspas:M OXY:C Derrek:E khalil:F Verno:M', 'mCe:C'],
+      ['Terrance', '#72dee4', 'v1c:C supamen:E mwzera:F artzin:M Xeppaa:C', 'Potter:E'],
+      ['Joseph', '#ffb1aa', 'koalanoob:8 nitr0:8 gMd:T seven:T Melser:K', 'fRoD:M'],
+      ['Kai', '#c8d386', 'Reduxx:O mitch:O penny:Y keznit:K runi:C', 'YFP Coach:Y'],
+    ];
+    const P = (s, coach) => { const [handle, team] = s.split(':'); return { handle, team, coach }; };
+    const managers = data.map(([name, color, players, coach]) => ({
+      name, initial: name[0],
+      cardStyle: 'border-radius: 16px; padding: 16px; display: flex; flex-direction: column; background: linear-gradient(180deg, color-mix(in srgb, ' + color + ' 14%, transparent), color-mix(in srgb, ' + color + ' 4%, #ffffff05) 50%); box-shadow: inset 0 0 0 1px color-mix(in srgb, ' + color + ' 35%, transparent), 0 1px 0 #ffffff0d inset, 0 10px 28px #00000059;',
+      avatarStyle: 'width: 30px; height: 30px; border-radius: 50%; background: #2a2a30; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; box-shadow: 0 0 0 2px #131315, 0 0 0 3.5px ' + color + ';',
+      roster: players.split(' ').map((s) => P(s, false)).concat([P(coach, true)]),
+    }));
+    return { managers };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tournaments</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#09090b}
+.pane{position:relative;background:#ffffff0a;-webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%);box-shadow:0 1px 0 #ffffff0d inset,0 12px 32px #00000059}
+.pane::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff33,#ffffff1a 40%,#ffffff00 75%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.card{transition:transform .18s ease-out,background .18s}
+.card:hover{transform:translateY(-2px);background:#ffffff12}
+.stretch::after{content:"";position:absolute;inset:0;border-radius:16px}
+.num{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; font-family: Geist, Inter, system-ui, sans-serif; color: #f4f4f5; background: radial-gradient(70rem 50rem at 0% 0%, #ffb47a14, #ffb47a00 70%), radial-gradient(70rem 50rem at 100% 100%, #ff6a1a1c, #ff6a1a00 70%), #09090b; --accent: {{accent}};">
+  <div style="flex: 1 1 100%;">
+    <dc-import name="SiteLogo" hint-size="100%,52px"></dc-import>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 28px 40px 56px; box-sizing: border-box;">
+    <div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <h1 style="margin: 0; font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -0.02em;">Tournaments</h1>
+        <a href="NewTournament.dc.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 10px; background: var(--accent); color: #1c0d02; font-size: 14px; font-weight: 600; text-decoration: none; box-shadow: inset 0 1px 0 #ffffff59, 0 8px 24px color-mix(in srgb, var(--accent) 30%, transparent);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+          New tournament
+        </a>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;">
+        <sc-for list="{{cards}}" as="card" hint-placeholder-count="3">
+          <article class="pane card" style="border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="{{card.headerStyle}}">
+              <div style="width: 60px; height: 60px; border-radius: 16px; background: #ffffff14; border: 1px solid #ffffff2e; box-shadow: inset 0 1px 0 #ffffff33, 0 10px 30px #00000066; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 600; letter-spacing: -0.03em;">{{card.mono}}</div>
+              <span style="{{card.badgeStyle}}">{{card.status}}</span>
+            </div>
+            <div style="padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px;">
+              <a href="Rosters.dc.html" class="stretch" style="font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em; color: #f4f4f5; text-decoration: none;">{{card.name}}</a>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <sc-for list="{{card.stages}}" as="stage" hint-placeholder-count="2">
+                  <span style="{{stage.style}}">{{stage.name}}</span>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span class="num" title="Teams" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; background: #ffffff0d; font-size: 12px; color: #a1a1aa;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>{{card.teams}}
+                </span>
+                <span title="Managers" style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 9px 4px 6px; border-radius: 8px; background: #ffffff0d;">
+                  <span style="display: inline-flex;">
+                    <sc-for list="{{card.managers}}" as="m" hint-placeholder-count="8">
+                      <span style="{{m.style}}">{{m.initial}}</span>
+                    </sc-for>
+                  </span>
+                  <span class="num" style="font-size: 12px; color: #a1a1aa;">{{card.slots}}</span>
+                </span>
+                <span class="num" title="Matches played" style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>{{card.matches}}
+                </span>
+              </div>
+              <div style="height: 4px; border-radius: 4px; background: #ffffff14; overflow: hidden;">
+                <div style="{{card.barStyle}}"></div>
+              </div>
+              <sc-if value="{{card.canJoin}}" hint-placeholder-val="{{ false }}">
+                <button type="button" style="position: relative; z-index: 1; height: 36px; border-radius: 10px; border: 0; background: var(--accent); color: #1c0d02; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: inset 0 1px 0 #ffffff59, 0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" x2="19" y1="8" y2="14"></line><line x1="22" x2="16" y1="11" y2="11"></line></svg>
+                  Join
+                </button>
+              </sc-if>
+            </div>
+          </article>
+        </sc-for>
+      </div>
+    </div>
+  </main>
+
+  <svg aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.035; pointer-events: none;"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence></filter><rect width="100%" height="100%" filter="url(#grain)"></rect></svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#ff7a1a","options":["#ff7a1a","#ff5c1a","#ff9a3d","#f97316"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#ff7a1a';
+    const colors = ['#95deae', '#fab0d9', '#f5bf81', '#5b9ddf', '#cfbeff', '#72dee4', '#ffb1aa', '#c8d386'];
+    const stack = (n) => colors.slice(0, n).map((c, i) => ({
+      initial: 'JAWSJTJK'[i],
+      style: 'width: 20px; height: 20px; border-radius: 50%; background: #2a2a30; font-size: 9px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px ' + c + ', 0 0 0 3px #131315;' + (i ? ' margin-left: -5px;' : ''),
+    }));
+    const badge = (status) => 'position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 600; ' +
+      (status === 'Live' || status === 'Drafting' ? 'background: ' + accent + '; color: #1c0d02; box-shadow: 0 4px 14px ' + accent + '55;' : 'background: #3f3f46; color: #f4f4f5;');
+    const chip = (state) => 'padding: 3px 10px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 500; ' +
+      (state === 'current' ? 'background: ' + accent + '29; color: #ff8f45; box-shadow: inset 0 0 0 1px ' + accent + '55;'
+        : state === 'done' ? 'background: #ffffff0d; color: #71717a;'
+        : 'background: #ffffff0d; color: #a1a1aa; box-shadow: inset 0 0 0 1px #ffffff14;');
+    const card = (c) => ({
+      ...c,
+      headerStyle: 'position: relative; height: 128px; display: flex; align-items: center; justify-content: center; background: radial-gradient(60% 90% at 50% 60%, ' + c.hue + ', #ffffff00 75%), linear-gradient(180deg, #ffffff08, #ffffff00); border-bottom: 1px solid #ffffff12;',
+      badgeStyle: badge(c.status),
+      stages: c.stages.map((s) => ({ name: s[0], style: chip(s[1]) })),
+      managers: stack(c.managerCount),
+      slots: c.managerCount + '/8',
+      matches: c.played + '/' + c.total,
+      canJoin: !!c.canJoin,
+      barStyle: 'height: 100%; width: ' + Math.round((c.played / c.total) * 100) + '%; border-radius: 4px; background: ' + (c.status === 'Ended' ? '#52525b' : accent) + ';',
+    });
+    return {
+      accent,
+      cards: [
+        card({ name: 'Challengers NA Stage 1', mono: 'C', status: 'Live', hue: '#ff7a1a33', teams: 16, managerCount: 8, played: 18, total: 32, stages: [['Stage 1', 'current'], ['Playoffs', 'next']] }),
+        card({ name: 'Challengers BR Stage 1', mono: 'B', status: 'Upcoming', hue: '#ffb47a26', teams: 10, managerCount: 5, played: 0, total: 26, canJoin: true, stages: [['Stage 1', 'next'], ['Playoffs', 'next']] }),
+        card({ name: 'Challengers NA 2024 Split 1', mono: 'C', status: 'Ended', hue: '#ffffff12', teams: 12, managerCount: 7, played: 34, total: 34, stages: [['Group Stage', 'done'], ['Playoffs', 'done']] }),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

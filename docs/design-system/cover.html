@@ -1,0 +1,62 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fantasy VCT</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&display=swap">
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--ink); font-family:var(--font-sans); overflow:hidden; }
+  .cover { position:relative; width:960px; height:288px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:288px; overflow:hidden; }
+  .art svg { display:block; width:480px; height:288px; }
+  .orange { fill:var(--accent); }
+  .graphite { fill:var(--neutral-badge); }
+  .steel { fill:var(--line); }
+  .blk { rx:var(--radius-lg); }
+  .pane { fill:var(--pane-hover); stroke:var(--pane-edge); stroke-width:1px; rx:var(--radius-xl); }
+  .cell { rx:var(--radius-sm); }
+  .made { fill:var(--neutral-badge); }
+  .clock { fill:var(--accent); }
+  .open { fill:none; stroke:var(--line); stroke-width:1.5px; }
+  .words { position:absolute; left:40px; bottom:32px; max-width:440px; }
+  .name { margin:0; font-size:88px; line-height:.92; font-weight:600; letter-spacing:-.035em; color:var(--ink); }
+  .tag { margin:var(--space-3) 0 0 3px; font-size:14px; line-height:20px; font-weight:500; color:var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      accent 200×200 bleeding off the top (the one brand color, largest) · neutral-badge graphite 240×120 bleeding off the right · line steel 136×120 bleeding off the bottom — ≈28% of 960×288
+  arrangement rounded slabs behind one glass pane (232×152, pane-edge rim) that overlaps all three, like a dashboard card floating over color
+  pattern     tiles, from "Soft, rounded panes; dense dashboard UI": a mini draft board of radius-sm cells on the pane; graphite = made picks, orange = on the clock, line outlines = open cells
+  scales      blocks radius-lg, pane radius-xl, cells radius-sm (8); cells 40×24 with space-2 gaps, rows at a 32px pitch, pane inset 24
+-->
+<rect class="orange blk" x="40" y="-24" width="200" height="200" rx="16"/>
+<rect class="graphite blk" x="256" y="24" width="240" height="120" rx="16"/>
+<rect class="steel blk" x="112" y="192" width="136" height="120" rx="16"/>
+<rect class="pane" x="176" y="80" width="232" height="152" rx="20"/>
+<rect class="made cell" x="200" y="104" width="40" height="24" rx="8"/>
+<rect class="made cell" x="248" y="104" width="40" height="24" rx="8"/>
+<rect class="made cell" x="296" y="104" width="40" height="24" rx="8"/>
+<rect class="made cell" x="344" y="104" width="40" height="24" rx="8"/>
+<rect class="made cell" x="200" y="136" width="40" height="24" rx="8"/>
+<rect class="made cell" x="248" y="136" width="40" height="24" rx="8"/>
+<rect class="clock cell" x="296" y="136" width="40" height="24" rx="8"/>
+<rect class="open cell" x="344.75" y="136.75" width="38.5" height="22.5" rx="7.25"/>
+<rect class="open cell" x="200.75" y="168.75" width="38.5" height="22.5" rx="7.25"/>
+<rect class="open cell" x="248.75" y="168.75" width="38.5" height="22.5" rx="7.25"/>
+<rect class="open cell" x="296.75" y="168.75" width="38.5" height="22.5" rx="7.25"/>
+<rect class="open cell" x="344.75" y="168.75" width="38.5" height="22.5" rx="7.25"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Fantasy VCT</h1>
+<p class="tag">Snake-draft the pros. Every kill counts.</p>
+</div>
+</div>
+</body>
+</html>

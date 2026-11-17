@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0;background:#09090b}
+.pane{position:relative;background:#ffffff0a;-webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%);box-shadow:0 1px 0 #ffffff0d inset,0 10px 28px #00000059}
+.pane::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff33,#ffffff1a 40%,#ffffff00 75%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.pop{position:relative;background:#1c1c20e6;-webkit-backdrop-filter:blur(32px) saturate(150%);backdrop-filter:blur(32px) saturate(150%);box-shadow:0 1px 0 #ffffff14 inset,0 24px 64px #000000a6}
+.pop::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff4d,#ffffff1a 40%,#ffffff00 80%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.num{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.ib{width:28px;height:28px;border-radius:8px;border:0;background:#ffffff0a;color:#a1a1aa;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.ib:hover{background:#ffffff14;color:#f4f4f5}
+.lbl{margin:0;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#a1a1aa}
+</style>
+</helmet>
+<div style="position: relative; min-height: 1000px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; font-family: Geist, Inter, system-ui, sans-serif; color: #f4f4f5; background: radial-gradient(70rem 50rem at 0% 0%, #ffb47a14, #ffb47a00 70%), radial-gradient(70rem 50rem at 100% 100%, #ff6a1a1c, #ff6a1a00 70%), #09090b;">
+  <div style="flex: 1 1 100%;">
+    <dc-import name="SiteLogo" hint-size="100%,52px"></dc-import>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 48px; box-sizing: border-box;">
+    <div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+      <dc-import name="TournamentHeader" tab="settings" hint-size="100%,110px"></dc-import>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <section class="pane" aria-label="Managers" style="border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <h2 class="lbl">Managers</h2>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="num" style="font-size: 12px; color: #a1a1aa;">8/8</span>
+                <button type="button" class="ib" aria-pressed="true" aria-label="Joining closed" title="Joining closed" style="color: var(--accent, #ff7a1a); background: #ff7a1a1f; box-shadow: inset 0 0 0 1px #ff7a1a55;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></button>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; justify-items: center;">
+              <sc-for list="{{managers}}" as="m" hint-placeholder-count="8">
+                <button type="button" title="{{m.name}}" aria-label="{{m.name}}" style="{{m.style}}">{{m.initial}}</button>
+              </sc-for>
+            </div>
+            <div class="pop" role="dialog" aria-label="Your color" style="border-radius: 14px; padding: 12px; align-self: flex-start;">
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px;">
+                <sc-for list="{{swatches}}" as="s" hint-placeholder-count="16">
+                  <button type="button" aria-label="{{s.name}}" title="{{s.name}}" disabled="{{s.taken}}" style="{{s.style}}"></button>
+                </sc-for>
+              </div>
+            </div>
+          </section>
+
+          <section class="pane" aria-label="Draft" style="border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 8px;">
+            <span title="Pick timer" style="color: #a1a1aa; display: flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" x2="14" y1="2" y2="2"></line><line x1="12" x2="15" y1="14" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg></span>
+            <button type="button" class="ib" aria-label="Less time"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+            <span class="num" style="min-width: 52px; text-align: center; font-size: 18px; font-weight: 600;">90s</span>
+            <button type="button" class="ib" aria-label="More time"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+            <div style="flex: 1;"></div>
+            <button type="button" class="ib" aria-label="Re-import from VLR" title="Re-import from VLR"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg></button>
+          </section>
+        </div>
+
+        <section class="pane" aria-label="Stages" style="grid-column: span 2; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 class="lbl">Stages</h2>
+            <button type="button" class="ib" aria-label="Add stage" title="Add stage"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+          </div>
+
+          <sc-for list="{{stages}}" as="st" hint-placeholder-count="2">
+            <div style="{{st.wrapStyle}}">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="{{st.chevronStyle}}"><path d="m9 18 6-6-6-6"></path></svg>
+                <span style="font-size: 14px; font-weight: 600;">{{st.name}}</span>
+                <span class="num" title="Matches" style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #a1a1aa;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>{{st.matches}}</span>
+                <span class="num" title="In pool" style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #a1a1aa;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>{{st.count}}</span>
+                <div style="flex: 1;"></div>
+                <button type="button" class="ib" aria-label="Rename" title="Rename"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></button>
+                <button type="button" class="ib" aria-label="Merge with next" title="Merge with next"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6 4-4 4 4"></path><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path><path d="m20 22-5-5"></path></svg></button>
+                <button type="button" class="ib" aria-label="Delete" title="Delete" style="color: #f87171;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg></button>
+              </div>
+
+              <sc-if value="{{st.open}}" hint-placeholder-val="{{ false }}">
+                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px;">
+                  <sc-for list="{{pool}}" as="team" hint-placeholder-count="8">
+                    <div style="border-radius: 10px; background: #141417e0; box-shadow: inset 0 0 0 1px #ffffff12; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+                      <div style="display: flex; align-items: center; gap: 7px; padding: 0 2px 4px;">
+                        <span style="width: 18px; height: 18px; border-radius: 5px; background: #ffffff14; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{team.mono}}</span>
+                        <span style="font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{team.name}}</span>
+                      </div>
+                      <sc-for list="{{team.players}}" as="p" hint-placeholder-count="6">
+                        <button type="button" title="{{p.toggleLabel}}" aria-label="{{p.toggleLabel}} {{p.handle}}" style="{{p.rowStyle}}">
+                          <svg width="20" height="20" viewBox="0 0 40 40" aria-hidden="true" style="display: block; flex: none; border-radius: 50%; background: #1f1f24;"><circle cx="20" cy="16" r="7" fill="#4a4a53"></circle><path d="M5 40c1.6-9 7.6-13 15-13s13.4 4 15 13z" fill="#4a4a53"></path></svg>
+                          <span style="{{p.nameStyle}}">{{p.handle}}</span>
+                          <sc-if value="{{p.coach}}" hint-placeholder-val="{{ false }}">
+                            <span title="Coach" style="flex: none; width: 15px; height: 15px; border-radius: 4px; background: #ffffff14; box-shadow: inset 0 0 0 1px #ffffff26; color: #f4f4f5; display: inline-flex; align-items: center; justify-content: center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg></span>
+                          </sc-if>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <svg aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.035; pointer-events: none;"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence></filter><rect width="100%" height="100%" filter="url(#grain)"></rect></svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const colors = [
+      ['Red', '#ffb1aa'], ['Amber', '#f5bf81'], ['Olive', '#c8d386'], ['Green', '#95deae'],
+      ['Teal', '#72dee4'], ['Blue', '#98d0ff'], ['Violet', '#cfbeff'], ['Rose', '#fab0d9'],
+      ['Deep red', '#d87972'], ['Deep amber', '#c78a3b'], ['Deep olive', '#96a142'], ['Deep green', '#53ae77'],
+      ['Deep teal', '#00aeb5'], ['Deep blue', '#5b9ddf'], ['Deep violet', '#9e88da'], ['Deep rose', '#cc79a9'],
+    ];
+    const takenBy = { Green: 'Jackey', Rose: 'Amy', Amber: 'Will', Violet: 'James', Teal: 'Terrance', Red: 'Joseph', Olive: 'Kai' };
+    const mine = 'Deep blue';
+    const swatches = colors.map(([name, hex]) => {
+      const taken = !!takenBy[name];
+      return {
+        name: taken ? name + ' · ' + takenBy[name] : name, taken,
+        style: 'width: 26px; height: 26px; border-radius: 50%; border: 0; padding: 0; cursor: ' + (taken ? 'not-allowed' : 'pointer') + '; background: ' + hex + '; ' +
+          (taken ? 'opacity: .2;' : '') + (name === mine ? ' box-shadow: 0 0 0 2px #1c1c20, 0 0 0 4px #f4f4f5;' : ' box-shadow: inset 0 1px 0 #ffffff59;'),
+      };
+    });
+    const managers = [
+      ['Jackey', '#95deae'], ['Amy', '#fab0d9'], ['Will', '#f5bf81'], ['Stephen', '#5b9ddf', true],
+      ['James', '#cfbeff'], ['Terrance', '#72dee4'], ['Joseph', '#ffb1aa'], ['Kai', '#c8d386'],
+    ].map(([name, color, you]) => ({
+      name, initial: name[0],
+      style: 'width: 32px; height: 32px; border-radius: 50%; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; color: #f4f4f5; background: #2a2a30; box-shadow: 0 0 0 2px #131315, 0 0 0 3.5px ' + color + (you ? ', 0 0 0 6px #f4f4f540' : '') + ';',
+    }));
+    const removedSet = { Zellsis: true, 'Rubén': true, moose: true };
+    const raw = [
+      ['Sentinels', 'S', 'zekken johnqt Sacy N4RRATE Zellsis', 'kaplan'],
+      ['G2 Esports', 'G', 'leaf trent valyn JonahP jawgemo', 'JoshRT'],
+      ['NRG', 'N', 'brawk Ethan mada s0m skuba', 'bonkar'],
+      ['100 Thieves', '1', 'Asuna bang Cryocells eeiu Boostio', 'Mikes'],
+      ['LOUD', 'L', 'Less tuyz cauanzin Saadhak qck', 'bzkA'],
+      ['Leviatán', 'V', 'kiNgg Mazino C0M Tacolilla Rubén', 'Leviatán Coach'],
+      ['Cloud9', 'C', 'OXY v1c Xeppaa runi moose', 'mCe'],
+      ['Evil Geniuses', 'E', 'Derrek supamen jakee Okeanos NaturE', 'Potter'],
+    ];
+    const pool = raw.map(([name, mono, players, coach]) => ({
+      name, mono,
+      players: players.split(' ').map((h) => ({ handle: h, coach: false })).concat([{ handle: coach, coach: true }]).map((p) => {
+        const removed = !!removedSet[p.handle];
+        return {
+          ...p,
+          toggleLabel: removed ? 'Restore' : 'Remove',
+          rowStyle: 'display: flex; align-items: center; gap: 6px; padding: 2px 3px; border-radius: 6px; border: 0; background: transparent; color: #f4f4f5; font: inherit; text-align: left; cursor: pointer; min-width: 0;' + (removed ? ' opacity: .35;' : ''),
+          nameStyle: 'flex: 0 1 auto; min-width: 0; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' + (removed ? ' text-decoration: line-through;' : ''),
+        };
+      }),
+    }));
+    const stage = (name, matches, count, open) => ({
+      name, matches, count, open,
+      wrapStyle: 'border-radius: 10px; padding: 8px 10px; ' + (open ? 'background: #ffffff08; box-shadow: inset 0 0 0 1px #ffffff12;' : 'box-shadow: inset 0 0 0 1px #ffffff0d;'),
+      chevronStyle: open ? 'transform: rotate(90deg);' : '',
+    });
+    return { managers, swatches, pool, stages: [stage('Stage 1', '24', '93', true), stage('Playoffs', '8', '96', false)] };
+  }
+}
+</script>
+</body>
+</html>
