@@ -18,7 +18,7 @@ describe("parseEventPage", () => {
 
   test("lists the teams of the shown stage with ids, links and logos", () => {
     expect(event.teams).toHaveLength(16);
-    expect(event.teams[0]).toEqual({
+    expect(event.teams[0]).toMatchObject({
       vlrId: "21243",
       name: "FRG",
       vlrUrl: "https://www.vlr.gg/team/21243/frg",
@@ -27,6 +27,16 @@ describe("parseEventPage", () => {
     expect(event.teams.find((team) => team.vlrId === "20489")?.logoUrl).toBe(
       "https://www.vlr.gg/img/vlr/tmp/vlr.png",
     );
+  });
+
+  test("reads each team's registered players", () => {
+    const frg = event.teams[0];
+    expect(frg?.registeredPlayers).toHaveLength(5);
+    expect(frg?.registeredPlayers[4]).toEqual({
+      vlrId: "65601",
+      handle: "Benni Benzon",
+      vlrUrl: "https://www.vlr.gg/player/65601/benni-benzon",
+    });
   });
 
   test("links the other stage tabs", () => {

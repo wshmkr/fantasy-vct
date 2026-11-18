@@ -16,6 +16,7 @@ import { DEFAULT_PLAYER_PICTURE_URL } from "./images.js";
 import { importEvent, reimportTournament } from "./import.js";
 
 const EVENT_URL = FIXTURE_EVENT_URL;
+const PICKABLE_COUNT = 91 + 16;
 
 let fakeVlr: ReturnType<typeof createFakeVlr>["download"];
 let downloadedUrls: string[];
@@ -50,7 +51,7 @@ describe("importEvent", () => {
     expect(rowCounts(db)).toMatchObject({
       teams: 16,
       tournamentTeams: 16,
-      pickables: 10 + 16,
+      pickables: PICKABLE_COUNT,
       stages: 2,
       matches: 70,
     });
@@ -71,6 +72,43 @@ describe("importEvent", () => {
       .all();
     expect(tbdMatches).toHaveLength(14);
     expect(tbdMatches.every((match) => match.team1Id === null)).toBe(true);
+  });
+
+  test("rosters are the players registered on the event page", () => {
+    const team = db.select().from(teams).where(eq(teams.vlrId, "21243")).get();
+    const handles = db
+      .select({ handle: pickables.handle })
+      .from(pickables)
+      .where(
+        and(eq(pickables.teamId, team?.id ?? 0), eq(pickables.kind, "player")),
+      )
+      .all()
+      .map((player) => player.handle);
+    expect(handles.sort()).toEqual(
+      ["fate", "gurbby", "Demonn", "Paco", "Benni Benzon"].sort(),
+    );
+  });
+
+  test("falls back to the team page when the event page lists no players", async () => {
+    const withoutRegisteredPlayers = async (url: string) => {
+      const download = await fakeVlr(url);
+      if (url !== EVENT_URL) return download;
+      const html = download.bytes
+        .toString()
+        .replaceAll(
+          /<a href="\/player\/[^"]*"[^>]*event-team-players-item[^>]*>/g,
+          "<a>",
+        );
+      return { ...download, bytes: Buffer.from(html) };
+    };
+    const freshDb = createDb(":memory:");
+    await importEvent(EVENT_URL, {
+      db: freshDb,
+      download: withoutRegisteredPlayers,
+    });
+    expect(countRows(freshDb, pickables, eq(pickables.kind, "player"))).toBe(
+      10,
+    );
   });
 
   test("stores a player's photo, top agents and form", () => {
@@ -163,7 +201,7 @@ describe("importEvent", () => {
           sizes.set(row.stageId, (sizes.get(row.stageId) ?? 0) + 1),
         new Map<number, number>(),
       );
-    expect([...poolSizes.values()]).toEqual([26, 26]);
+    expect([...poolSizes.values()]).toEqual([PICKABLE_COUNT, PICKABLE_COUNT]);
   });
 
   test("importing again is idempotent and uses the cache", async () => {
@@ -236,6 +274,6 @@ describe("importEvent", () => {
         stagePool,
         and(eq(stagePool.stageId, playoffs.id), eq(stagePool.removed, true)),
       ),
-    ).toBe(26);
+    ).toBe(PICKABLE_COUNT);
   });
 });

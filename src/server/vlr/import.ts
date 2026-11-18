@@ -12,6 +12,7 @@ import {
 } from "../db/schema.js";
 import {
   type ParsedEventTeam,
+  type ParsedPerson,
   parseEventPage,
   parseEventTeams,
   vlrEventIdFromUrl,
@@ -35,7 +36,7 @@ import {
   parsePlayerPage,
   playerFormUrl,
 } from "./player.js";
-import { type ParsedPerson, parseTeamPage } from "./team.js";
+import { parseTeamPage } from "./team.js";
 
 export interface ImportOptions {
   refresh?: boolean;
@@ -50,7 +51,7 @@ interface ScrapedPerson extends ParsedPerson {
   form: FormStats | null;
 }
 
-interface ScrapedTeam extends ParsedEventTeam {
+interface ScrapedTeam extends Omit<ParsedEventTeam, "registeredPlayers"> {
   logoImageId: number | null;
   players: ScrapedPerson[];
   headCoach: ScrapedPerson | null;
@@ -116,9 +117,16 @@ async function scrapeEvent(
   onProgress({ phase: "event", done: eventPageCount, total: eventPageCount });
 
   const rosters = [];
-  for (const [index, team] of [...eventTeams.values()].entries()) {
-    const roster = parseTeamPage(await fetchPage(source, team.vlrUrl));
-    rosters.push({ team, ...roster });
+  for (const [index, eventTeam] of [...eventTeams.values()].entries()) {
+    const { registeredPlayers, ...team } = eventTeam;
+    // The team page is still needed for the head coach; its players are only a fallback.
+    const teamPage = parseTeamPage(await fetchPage(source, team.vlrUrl));
+    rosters.push({
+      team,
+      players:
+        registeredPlayers.length > 0 ? registeredPlayers : teamPage.players,
+      headCoach: teamPage.headCoach,
+    });
     onProgress({ phase: "teams", done: index + 1, total: eventTeams.size });
   }
 

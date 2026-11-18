@@ -1,11 +1,18 @@
 import * as cheerio from "cheerio";
 import { absoluteVlrUrl } from "./fetch.js";
 
+export interface ParsedPerson {
+  vlrId: string;
+  handle: string;
+  vlrUrl: string;
+}
+
 export interface ParsedEventTeam {
   vlrId: string;
   name: string;
   vlrUrl: string;
   logoUrl: string | null;
+  registeredPlayers: ParsedPerson[];
 }
 
 export interface ParsedEventPage {
@@ -26,6 +33,10 @@ export function vlrIdFromHref(href: string): string {
   const match = /^\/\w+\/(\d+)/.exec(href);
   if (!match?.[1]) throw new Error(`No VLR id in ${href}`);
   return match[1];
+}
+
+export function personFromHref(href: string, handle: string): ParsedPerson {
+  return { vlrId: vlrIdFromHref(href), handle, vlrUrl: absoluteVlrUrl(href) };
 }
 
 export function parseEventPage(html: string): ParsedEventPage {
@@ -66,6 +77,12 @@ function teamsOnPage($: cheerio.CheerioAPI): ParsedEventTeam[] {
         name: nameLink.text().trim(),
         vlrUrl: absoluteVlrUrl(href),
         logoUrl: logoSrc ? absoluteVlrUrl(logoSrc) : null,
+        registeredPlayers: $(card)
+          .find("a.event-team-players-item[href^='/player/']")
+          .map((_, link) =>
+            personFromHref($(link).attr("href") ?? "", $(link).text().trim()),
+          )
+          .get(),
       };
     })
     .get();

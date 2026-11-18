@@ -1,12 +1,5 @@
 import * as cheerio from "cheerio";
-import { vlrIdFromHref } from "./event.js";
-import { absoluteVlrUrl } from "./fetch.js";
-
-export interface ParsedPerson {
-  vlrId: string;
-  handle: string;
-  vlrUrl: string;
-}
+import { type ParsedPerson, personFromHref } from "./event.js";
 
 export interface ParsedTeamPage {
   players: ParsedPerson[];
@@ -36,9 +29,9 @@ export function parseTeamPage(html: string): ParsedTeamPage {
           .text()
           .trim()
           .toLowerCase();
-        const person = {
-          vlrId: vlrIdFromHref(href),
-          handle: $(item)
+        const person = personFromHref(
+          href,
+          $(item)
             .find(".team-roster-item-name-alias")
             .clone()
             .children()
@@ -46,8 +39,7 @@ export function parseTeamPage(html: string): ParsedTeamPage {
             .end()
             .text()
             .trim(),
-          vlrUrl: absoluteVlrUrl(href),
-        };
+        );
         if (section === "players" && !benchedRoles.includes(role)) {
           players.push(person);
         } else if (section === "staff" && role === "head coach") {
