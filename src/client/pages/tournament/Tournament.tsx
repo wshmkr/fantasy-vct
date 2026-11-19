@@ -4,7 +4,7 @@ import { Navigate, useParams } from "react-router-dom";
 import SegmentedControl, {
   type Segment,
 } from "../../components/SegmentedControl";
-import { useLiveRefetchInterval } from "../../matches";
+import { useLivePolling } from "../../matches";
 import { useTournament } from "../../tournaments";
 import { useMe } from "../../useMe";
 import DraftTab from "./draft/DraftTab";
@@ -30,10 +30,8 @@ export default function Tournament() {
   const tournamentId = Number(params.tournamentId);
   const tab = params.tab ?? "rosters";
   const me = useMe();
-  const tournament = useTournament(
-    tournamentId,
-    useLiveRefetchInterval(tournamentId),
-  );
+  const tournament = useTournament(tournamentId);
+  useLivePolling(tournamentId);
   const tabs =
     me.data?.role === "commissioner" ? COMMISSIONER_TABS : MEMBER_TABS;
   const segments: Segment<string>[] = tabs.map((definition) => ({

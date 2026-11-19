@@ -39,6 +39,7 @@ const tournament: Tournament = {
   teamCount: 2,
   matchesPlayed: 2,
   matchesTotal: 3,
+  leaders: [],
 };
 
 const sentinels = { id: 1, name: "Sentinels", logoImageId: null };

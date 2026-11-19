@@ -2,9 +2,10 @@ import type {
   MatchPick,
   MatchSub,
   MatchSummary,
+  MatchTeamBase,
   MatchTeamDetail,
 } from "@shared/api";
-import type { Stage } from "@shared/entities";
+import type { MatchStatus, Stage } from "@shared/entities";
 import { addStatLines, type MapStatLine } from "@shared/scoring";
 
 export interface ScheduleDay {
@@ -76,10 +77,6 @@ export function formatTime(scheduledAt: string | null): string {
   });
 }
 
-export function formatPoints(points: number): string {
-  return points < 0 ? `−${Math.abs(points)}` : String(points);
-}
-
 export const bestOfLabel = (bestOf: number) => `BO${bestOf}`;
 
 export function winnerSide(
@@ -92,6 +89,16 @@ export function winnerSide(
   return team1Score > team2Score ? 1 : 2;
 }
 
+// Only a completed series has a winner; a live one's lead can still flip.
+export function matchWinner(match: {
+  status: MatchStatus;
+  team1: MatchTeamBase | null;
+  team2: MatchTeamBase | null;
+}) {
+  if (match.status !== "completed") return null;
+  return winnerSide(match.team1?.score ?? null, match.team2?.score ?? null);
+}
+
 // Subs credited to the same player across maps merge into one row; unassigned ones stay per map.
 export interface SubRow {
   key: string;
@@ -101,7 +108,7 @@ export interface SubRow {
   mapName: string | null;
 }
 
-export type TeamTableRow =
+type TeamTableRow =
   | { kind: "pick"; pick: MatchPick }
   | { kind: "sub"; sub: SubRow };
 

@@ -212,6 +212,11 @@ const theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: { ...textStyle("label"), borderRadius: "var(--radius-full)" },
+        sizeSmall: {
+          height: 18,
+          fontSize: 11,
+          "& .MuiChip-label": { paddingLeft: 7, paddingRight: 7 },
+        },
       },
     },
   },

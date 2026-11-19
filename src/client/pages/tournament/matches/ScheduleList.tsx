@@ -2,9 +2,9 @@ import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { MatchSummary, MatchTeamSummary } from "@shared/api";
-import { displayNameOf, type TournamentMember } from "@shared/entities";
+import type { TournamentMember } from "@shared/entities";
 import { TriangleAlert } from "lucide-react";
-import ManagerAvatar from "../../../components/ManagerAvatar";
+import ManagerStack from "../../../components/ManagerStack";
 import Pane from "../../../components/Pane";
 import StatusBadge from "../../../components/StatusBadge";
 import TeamLogo from "../../../components/TeamLogo";
@@ -13,8 +13,8 @@ import {
   formatDay,
   formatTime,
   isSelectable,
+  matchWinner,
   type ScheduleDay,
-  winnerSide,
 } from "./matchView";
 
 function alertLabelOf(match: MatchSummary) {
@@ -24,12 +24,12 @@ function alertLabelOf(match: MatchSummary) {
 function TeamLine({
   team,
   dimmed,
-  scoreDimmed,
+  hasScore,
   members,
 }: {
   team: MatchTeamSummary | null;
   dimmed: boolean;
-  scoreDimmed: boolean;
+  hasScore: boolean;
   members: TournamentMember[];
 }) {
   const owners = members.filter(({ user }) =>
@@ -58,20 +58,7 @@ function TeamLine({
       >
         {team?.name ?? "TBD"}
       </Typography>
-      <Box sx={{ display: "flex", gap: "3px", flex: "none", pr: "2px" }}>
-        {owners.map(({ user, color }) => (
-          <Tooltip key={user.id} title={displayNameOf(user)}>
-            <Box sx={{ display: "flex" }}>
-              <ManagerAvatar
-                user={user}
-                size={16}
-                ringColor={color}
-                tightRing
-              />
-            </Box>
-          </Tooltip>
-        ))}
-      </Box>
+      <ManagerStack members={owners} size={16} gap={3} ring="tight" />
       <Typography
         variant="stat"
         sx={{
@@ -80,7 +67,7 @@ function TeamLine({
           textAlign: "right",
           fontSize: 15,
           fontWeight: 700,
-          color: scoreDimmed ? "var(--ink-muted)" : "var(--ink)",
+          color: hasScore && !dimmed ? "var(--ink)" : "var(--ink-muted)",
         }}
       >
         {team?.score ?? "–"}
@@ -103,10 +90,7 @@ function ScheduleRow({
   showAlert: boolean;
 }) {
   const selectable = isSelectable(match);
-  const winner =
-    match.status === "completed"
-      ? winnerSide(match.team1?.score ?? null, match.team2?.score ?? null)
-      : null;
+  const winner = matchWinner(match);
   const hasScore = match.status !== "upcoming";
   return (
     <Box
@@ -151,7 +135,7 @@ function ScheduleRow({
         }}
       >
         {match.status === "live" ? (
-          <StatusBadge status="live" compact />
+          <StatusBadge status="live" size="small" />
         ) : (
           <Typography
             variant="stat"
@@ -183,13 +167,13 @@ function ScheduleRow({
         <TeamLine
           team={match.team1}
           dimmed={winner === 2}
-          scoreDimmed={!hasScore || winner === 2}
+          hasScore={hasScore}
           members={members}
         />
         <TeamLine
           team={match.team2}
           dimmed={winner === 1}
-          scoreDimmed={!hasScore || winner === 1}
+          hasScore={hasScore}
           members={members}
         />
       </Box>

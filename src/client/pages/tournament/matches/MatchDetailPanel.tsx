@@ -1,5 +1,5 @@
 import Box from "@mui/material/Box";
-import Tooltip from "@mui/material/Tooltip";
+import type { SxProps, Theme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import type {
   MatchDetail,
@@ -7,21 +7,22 @@ import type {
   MatchSub,
   MatchTeamDetail,
 } from "@shared/api";
-import { displayNameOf, type TournamentMember } from "@shared/entities";
+import type { TournamentMember } from "@shared/entities";
 import type { MapStatLine } from "@shared/scoring";
 import { CornerDownRight, TriangleAlert } from "lucide-react";
 import type { ChangeEvent } from "react";
-import ManagerAvatar from "../../../components/ManagerAvatar";
+import ManagerStack from "../../../components/ManagerStack";
 import Pane from "../../../components/Pane";
 import PlayerChip from "../../../components/PlayerChip";
+import Points from "../../../components/Points";
 import StatusBadge from "../../../components/StatusBadge";
 import TeamLogo from "../../../components/TeamLogo";
 import { useAssignSub, useMatch } from "../../../matches";
 import {
   bestOfLabel,
   formatDay,
-  formatPoints,
   formatTime,
+  matchWinner,
   type SubRow,
   teamTableRows,
   winnerSide,
@@ -90,33 +91,12 @@ function PickRow({
         <PlayerChip
           pickable={pick.pickable}
           teamLogoImageId={teamLogoImageId}
-          dense
+          size="dense"
         />
-        {owner && (
-          <Tooltip title={displayNameOf(owner.user)}>
-            <Box sx={{ display: "flex", flex: "none", ml: "2px" }}>
-              <ManagerAvatar
-                user={owner.user}
-                size={18}
-                ringColor={owner.color}
-                tightRing
-              />
-            </Box>
-          </Tooltip>
-        )}
+        {owner && <ManagerStack members={[owner]} size={18} ring="tight" />}
       </Box>
       <StatCells stats={pick.playerStatTotals} />
-      <Typography
-        variant="stat"
-        sx={{
-          textAlign: "right",
-          fontSize: 13,
-          fontWeight: 700,
-          color: pick.points < 0 ? "var(--loss)" : "var(--ink)",
-        }}
-      >
-        {formatPoints(pick.points)}
-      </Typography>
+      <Points points={pick.points} sx={{ fontSize: 13, fontWeight: 700 }} />
     </Box>
   );
 }
@@ -254,16 +234,7 @@ function TeamTable({
       aria-label={team.name}
       sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}
     >
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: TABLE_COLUMNS,
-          alignItems: "center",
-          gap: "4px",
-          height: 28,
-          px: "8px",
-        }}
-      >
+      <Box sx={{ ...tableRowSx, height: 28, borderTop: 0 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <TeamLogo imageId={team.logoImageId} size={20} />
           <Typography variant="bodyStrong" sx={{ fontSize: 13 }}>
@@ -307,11 +278,41 @@ function TeamTable({
   );
 }
 
+function ScorePair({
+  team1,
+  team2,
+  winner,
+  separator,
+  separatorGap = 0,
+  sx,
+}: {
+  team1: number | null;
+  team2: number | null;
+  winner: 1 | 2 | null;
+  separator: string;
+  separatorGap?: string | number;
+  sx: SxProps<Theme>;
+}) {
+  const sideSx = (dimmed: boolean) => ({
+    color: dimmed ? "var(--ink-muted)" : "var(--ink)",
+  });
+  return (
+    <Typography variant="stat" sx={sx}>
+      <Box component="span" sx={sideSx(winner === 2)}>
+        {team1 ?? "–"}
+      </Box>
+      <Box component="span" sx={{ color: "#52525b", mx: separatorGap }}>
+        {separator}
+      </Box>
+      <Box component="span" sx={sideSx(winner === 1)}>
+        {team2 ?? "–"}
+      </Box>
+    </Typography>
+  );
+}
+
 function DetailHeader({ match }: { match: MatchDetail }) {
-  const winner =
-    match.status === "completed"
-      ? winnerSide(match.team1?.score ?? null, match.team2?.score ?? null)
-      : null;
+  const winner = matchWinner(match);
   const teamSx = (dimmed: boolean) => ({
     display: "flex",
     alignItems: "center",
@@ -333,23 +334,14 @@ function DetailHeader({ match }: { match: MatchDetail }) {
         <TeamLogo imageId={match.team1?.logoImageId ?? null} size={32} />
         {match.team1?.name}
       </Typography>
-      <Typography variant="stat" sx={{ fontSize: 24, fontWeight: 700 }}>
-        <Box
-          component="span"
-          sx={{ color: winner === 2 ? "var(--ink-muted)" : undefined }}
-        >
-          {match.team1?.score ?? "–"}
-        </Box>
-        <Box component="span" sx={{ color: "#52525b", mx: "8px" }}>
-          :
-        </Box>
-        <Box
-          component="span"
-          sx={{ color: winner === 1 ? "var(--ink-muted)" : undefined }}
-        >
-          {match.team2?.score ?? "–"}
-        </Box>
-      </Typography>
+      <ScorePair
+        team1={match.team1?.score ?? null}
+        team2={match.team2?.score ?? null}
+        winner={winner}
+        separator=":"
+        separatorGap="8px"
+        sx={{ fontSize: 24, fontWeight: 700 }}
+      />
       <Typography sx={teamSx(winner === 1)}>
         {match.team2?.name}
         <TeamLogo imageId={match.team2?.logoImageId ?? null} size={32} />
@@ -374,7 +366,6 @@ function MapChips({ match }: { match: MatchDetail }) {
   return (
     <Box sx={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
       {match.maps.map((map) => {
-        const winner = winnerSide(map.team1Rounds, map.team2Rounds);
         return (
           <Box
             key={map.mapNo}
@@ -394,23 +385,13 @@ function MapChips({ match }: { match: MatchDetail }) {
             >
               {map.mapName}
             </Typography>
-            <Typography variant="stat" sx={{ fontSize: 12, fontWeight: 600 }}>
-              <Box
-                component="span"
-                sx={{ color: winner === 1 ? "var(--ink)" : "var(--ink-muted)" }}
-              >
-                {map.team1Rounds}
-              </Box>
-              <Box component="span" sx={{ color: "#52525b" }}>
-                –
-              </Box>
-              <Box
-                component="span"
-                sx={{ color: winner === 2 ? "var(--ink)" : "var(--ink-muted)" }}
-              >
-                {map.team2Rounds}
-              </Box>
-            </Typography>
+            <ScorePair
+              team1={map.team1Rounds}
+              team2={map.team2Rounds}
+              winner={winnerSide(map.team1Rounds, map.team2Rounds)}
+              separator="–"
+              sx={{ fontSize: 12, fontWeight: 600 }}
+            />
           </Box>
         );
       })}

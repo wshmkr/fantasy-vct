@@ -49,6 +49,18 @@ export type StageFormat = (typeof STAGE_FORMATS)[number];
 export const MATCH_STATUSES = ["upcoming", "live", "completed"] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
+// VLR can show a match live or completed before its scheduled time.
+export function hasStarted(
+  match: { status: MatchStatus; scheduledAt: string | null },
+  now: Date,
+): boolean {
+  return (
+    match.status !== "upcoming" ||
+    (match.scheduledAt !== null &&
+      Date.parse(match.scheduledAt) <= now.getTime())
+  );
+}
+
 export const SCRAPE_STATUSES = ["pending", "ok", "failed"] as const;
 export type ScrapeStatus = (typeof SCRAPE_STATUSES)[number];
 

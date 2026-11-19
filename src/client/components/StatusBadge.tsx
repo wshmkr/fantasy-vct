@@ -1,4 +1,4 @@
-import Chip from "@mui/material/Chip";
+import Chip, { type ChipProps } from "@mui/material/Chip";
 import type { TournamentStatus } from "@shared/entities";
 
 const STATUS_LABELS: Record<TournamentStatus, string> = {
@@ -10,33 +10,31 @@ const STATUS_LABELS: Record<TournamentStatus, string> = {
 
 export default function StatusBadge({
   status,
-  compact = false,
+  size = "medium",
 }: {
   status: TournamentStatus;
-  compact?: boolean;
+  size?: ChipProps["size"];
 }) {
   const isActive = status === "live" || status === "drafting";
   return (
     <Chip
       component="span"
       label={STATUS_LABELS[status]}
+      size={size}
       sx={[
         {
-          height: 22,
           bgcolor: "var(--neutral-badge)",
           color: "var(--ink)",
-          "& .MuiChip-label": { px: "10px" },
+          "&.MuiChip-sizeMedium": {
+            height: 22,
+            "& .MuiChip-label": { px: "10px" },
+          },
         },
         isActive && {
           bgcolor: "var(--accent)",
           color: "var(--on-accent)",
           boxShadow:
             "0 4px 14px color-mix(in srgb, var(--accent) 33%, transparent)",
-        },
-        compact && {
-          height: 18,
-          fontSize: 11,
-          "& .MuiChip-label": { px: "7px" },
         },
       ]}
     />

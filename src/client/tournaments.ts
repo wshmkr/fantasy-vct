@@ -27,15 +27,11 @@ export function useTournaments() {
   });
 }
 
-export function useTournament(
-  tournamentId: number,
-  refetchInterval: number | false = false,
-) {
+export function useTournament(tournamentId: number) {
   return useQuery({
     queryKey: tournamentQueryKey(tournamentId),
     queryFn: () =>
       apiClient.get<Tournament>(API_ROUTES.tournament(tournamentId)),
-    refetchInterval,
   });
 }
 

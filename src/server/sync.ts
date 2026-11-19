@@ -1,4 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
+import { hasStarted } from "../shared/entities.js";
 import { db as appDb, type Db } from "./db/client.js";
 import {
   matches,
@@ -35,14 +36,6 @@ export interface SyncOptions {
   db?: Db;
   download?: Downloader;
   now?: () => Date;
-}
-
-function hasStarted(match: MatchTiming, now: Date): boolean {
-  return (
-    match.status !== "upcoming" ||
-    (match.scheduledAt !== null &&
-      Date.parse(match.scheduledAt) <= now.getTime())
-  );
 }
 
 export function isDue(match: MatchTiming, now: Date): boolean {

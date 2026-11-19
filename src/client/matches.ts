@@ -4,33 +4,40 @@ import {
   type MatchesResponse,
   type SubAssignmentsBody,
 } from "@shared/api";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { hasStarted } from "@shared/entities";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { apiClient } from "./apiClient";
-import { TOURNAMENTS_QUERY_KEY, useInvalidateTournaments } from "./tournaments";
+import { tournamentQueryKey, useInvalidateTournaments } from "./tournaments";
 
 const LIVE_REFETCH_MS = 60_000;
 const SYNC_POLL_MS = 3_000;
+const MAX_WAIT_FOR_NEXT_MATCH_MS = 60 * 60_000;
 
 // Nested under the tournament key so tournament invalidations also refresh matches.
 const matchesQueryKey = (tournamentId: number) => [
-  ...TOURNAMENTS_QUERY_KEY,
-  tournamentId,
+  ...tournamentQueryKey(tournamentId),
   "matches",
 ];
 
-const MAX_WAIT_FOR_NEXT_MATCH_MS = 60 * 60_000;
+const matchesQueryOptions = (tournamentId: number) => ({
+  queryKey: matchesQueryKey(tournamentId),
+  queryFn: () =>
+    apiClient.get<MatchesResponse>(API_ROUTES.tournamentMatches(tournamentId)),
+});
 
 // Until a match is due, wait for the soonest kickoff so polling starts on its own.
 export function liveRefetchInterval(
   data: MatchesResponse | undefined,
   now: number,
 ): number | false {
-  const pending = (data?.matches ?? []).filter(
+  const unscraped = (data?.matches ?? []).filter(
     (match) => match.scrapeStatus !== "ok",
   );
-  if (pending.some((match) => match.status === "live")) return LIVE_REFETCH_MS;
-  const kickoffs = pending.flatMap((match) =>
+  if (unscraped.some((match) => hasStarted(match, new Date(now)))) {
+    return LIVE_REFETCH_MS;
+  }
+  const kickoffs = unscraped.flatMap((match) =>
     match.scheduledAt === null ? [] : [Date.parse(match.scheduledAt)],
   );
   if (kickoffs.length === 0) return false;
@@ -42,46 +49,47 @@ export function liveRefetchInterval(
 }
 
 export function useTournamentMatches(tournamentId: number) {
-  return useQuery({
-    queryKey: matchesQueryKey(tournamentId),
-    queryFn: () =>
-      apiClient.get<MatchesResponse>(
-        API_ROUTES.tournamentMatches(tournamentId),
-      ),
+  return useQuery(matchesQueryOptions(tournamentId));
+}
+
+// Structural sharing keeps the same reference when nothing changed, so only real changes cascade.
+export function useLivePolling(tournamentId: number) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    ...matchesQueryOptions(tournamentId),
     refetchInterval: ({ state }) =>
       state.data?.syncRunning
         ? SYNC_POLL_MS
         : liveRefetchInterval(state.data, Date.now()),
   });
-}
-
-export function useLiveRefetchInterval(tournamentId: number): number | false {
-  return liveRefetchInterval(
-    useTournamentMatches(tournamentId).data,
-    Date.now(),
-  );
+  const previousData = useRef(data);
+  useEffect(() => {
+    if (previousData.current && data !== previousData.current) {
+      queryClient.invalidateQueries({
+        queryKey: tournamentQueryKey(tournamentId),
+      });
+    }
+    previousData.current = data;
+  }, [data, queryClient, tournamentId]);
 }
 
 export function useMatch(tournamentId: number, matchId: number) {
-  const refetchInterval = useLiveRefetchInterval(tournamentId);
   return useQuery({
     queryKey: [...matchesQueryKey(tournamentId), matchId],
     queryFn: () => apiClient.get<MatchDetail>(API_ROUTES.match(matchId)),
-    refetchInterval,
   });
 }
 
 export function useSync(tournamentId: number) {
-  const invalidateTournaments = useInvalidateTournaments();
+  const queryClient = useQueryClient();
   const running = useTournamentMatches(tournamentId).data?.syncRunning ?? false;
-  const wasRunning = useRef(running);
-  useEffect(() => {
-    if (wasRunning.current && !running) invalidateTournaments();
-    wasRunning.current = running;
-  }, [running, invalidateTournaments]);
   const start = useMutation({
     mutationFn: () => apiClient.post(API_ROUTES.tournamentSync(tournamentId)),
-    onSuccess: invalidateTournaments,
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: matchesQueryKey(tournamentId),
+        exact: true,
+      }),
   });
   return { running: running || start.isPending, start: () => start.mutate() };
 }
