@@ -1079,4 +1079,4 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] 2.2 Scoring and standings API (commit f887544)
 - [x] 2.3 Standings UI (commit 015dbad)
 - [x] 2.4 Matches tab (commit cce0290)
-- [ ] Checkpoint 2 gate, report and re-planning notes → **stop here**
+- [x] Checkpoint 2 gate, report and re-planning notes (demo steps 2–10 passed 2026-11-19; step 1 re-score: mada/Reduxx differ from the sheet, see report) → **stop here**
