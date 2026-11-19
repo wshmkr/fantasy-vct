@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Standings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#09090b}
+.pane{position:relative;-webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%)}
+.pane::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff33,#ffffff1a 40%,#ffffff00 75%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.p{transition:background .15s}
+.p:hover{background:#ffffff0f}
+.num{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; font-family: Geist, Inter, system-ui, sans-serif; color: #f4f4f5; background: radial-gradient(70rem 50rem at 0% 0%, #ffb47a14, #ffb47a00 70%), radial-gradient(70rem 50rem at 100% 100%, #ff6a1a1c, #ff6a1a00 70%), #09090b;">
+  <div style="flex: 1 1 100%;">
+    <dc-import name="SiteLogo" hint-size="100%,52px"></dc-import>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 48px; box-sizing: border-box;">
+    <div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px;">
+      <dc-import name="TournamentHeader" tab="rosters" hint-size="100%,110px"></dc-import>
+
+      <div role="tablist" aria-label="Scope" style="display: inline-flex; align-self: flex-start; gap: 3px; padding: 3px; border-radius: 10px; background: #ffffff0a; box-shadow: inset 0 0 0 1px #ffffff12;">
+        <sc-for list="{{scopes}}" as="s" hint-placeholder-count="3">
+          <button type="button" role="tab" aria-selected="{{s.selected}}" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button>
+        </sc-for>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start;">
+        <sc-for list="{{managers}}" as="m" hint-placeholder-count="8">
+          <section class="pane" style="{{m.cardStyle}}">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 0 4px 8px;">
+              <span class="num" style="{{m.rankStyle}}">{{m.rank}}</span>
+              <span style="{{m.avatarStyle}}">{{m.initial}}</span>
+              <span style="flex: 1; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.name}}</span>
+              <span title="Locked" style="color: #a1a1aa; display: flex;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
+              <span class="num" style="font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: -0.02em;">{{m.total}}</span>
+            </div>
+
+            <sc-if value="{{isStage}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column;">
+                <sc-for list="{{m.roster}}" as="p" hint-placeholder-count="6">
+                  <a href="https://www.vlr.gg/" target="_blank" rel="noopener" class="p" style="display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 6px; border-radius: 8px; text-decoration: none; color: #f4f4f5; min-width: 0;">
+                    <span style="position: relative; width: 26px; height: 26px; flex: none;">
+                      <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true" style="display: block; border-radius: 50%; background: #1f1f24;"><circle cx="20" cy="16" r="7" fill="#4a4a53"></circle><path d="M5 40c1.6-9 7.6-13 15-13s13.4 4 15 13z" fill="#4a4a53"></path></svg>
+                      <span aria-hidden="true" style="position: absolute; right: -3px; bottom: -3px; width: 12px; height: 12px; border-radius: 50%; background: #09090b; box-shadow: 0 0 0 1px #ffffff2e, 0 0 6px #ff7a1a66; font-size: 6px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{p.team}}</span>
+                    </span>
+                    <span style="flex: 0 1 auto; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{p.handle}}</span>
+                    <sc-if value="{{p.coach}}" hint-placeholder-val="{{ false }}">
+                      <span role="img" aria-label="Coach" title="Coach" style="flex: none; width: 18px; height: 18px; border-radius: 5px; background: #ffffff14; box-shadow: inset 0 0 0 1px #ffffff26; color: #f4f4f5; display: inline-flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg></span>
+                    </sc-if>
+                    <span style="flex: 1;"></span>
+                    <span class="num" style="{{p.ptsStyle}}">{{p.pts}}</span>
+                  </a>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{isTotal}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <sc-for list="{{m.stages}}" as="s" hint-placeholder-count="2">
+                  <div style="display: grid; grid-template-columns: 76px minmax(0, 1fr) 52px; align-items: center; gap: 10px; height: 32px; padding: 0 6px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{s.name}}</span>
+                    <span style="height: 4px; border-radius: 4px; background: #ffffff12; overflow: hidden;"><span style="{{s.barStyle}}"></span></span>
+                    <span class="num" style="font-size: 13px; font-weight: 600; text-align: right;">{{s.pts}}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </section>
+        </sc-for>
+      </div>
+    </div>
+  </main>
+
+  <svg aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.035; pointer-events: none;"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence></filter><rect width="100%" height="100%" filter="url(#grain)"></rect></svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"scope":{"editor":"enum","options":["stage","total"],"default":"stage"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const scope = (this.state && this.state.scope) || this.props.scope || 'stage';
+    const isStage = scope === 'stage';
+    const data = [
+      ['Jackey', '#95deae', 'Less:L:412 Ethan:N:288 trent:G:356 Cryocells:1:501 s0m:N:174', 'bzkA:L:296', 288],
+      ['Amy', '#fab0d9', 'leaf:G:344 kiNgg:V:251 Mazino:V:198 tuyz:L:305 eeiu:1:122', 'Leviatán Coach:V:264', 336],
+      ['Will', '#f5bf81', 'Asuna:1:377 mada:N:755 jawgemo:G:290 C0M:V:233 JonahP:G:181', 'Mikes:1:318', 455],
+      ['Stephen', '#5b9ddf', 'zekken:S:468 johnqt:S:262 Saadhak:L:141 brawk:N:470 Boostio:1:189', 'kaplan:S:302', 390],
+      ['James', '#cfbeff', 'aspas:M:523 OXY:C:397 Derrek:E:211 khalil:F:156 Verno:M:650', 'mCe:C:276', 312],
+      ['Terrance', '#72dee4', 'v1c:C:592 supamen:E:233 mwzera:F:312 artzin:M:88 Xeppaa:C:274', 'Potter:E:248', 198],
+      ['Joseph', '#ffb1aa', 'koalanoob:8:476 nitr0:8:175 gMd:T:412 seven:T:315 Melser:K:-23', 'fRoD:M:230', 402],
+      ['Kai', '#c8d386', 'Reduxx:O:601 mitch:O:198 penny:Y:281 keznit:K:360 runi:C:-84', 'YFP Coach:Y:190', 251],
+    ];
+    const fmt = (n) => (n < 0 ? '−' + Math.abs(n) : String(n));
+    const pick = (s, coach) => {
+      const [handle, team, raw] = s.split(':');
+      const pts = Number(raw);
+      return { handle, team, coach, pts: fmt(pts), value: pts,
+        ptsStyle: 'flex: none; font-size: 13px; font-weight: 600; text-align: right; color: ' + (pts < 0 ? '#f87171' : '#e4e4e7') + ';' };
+    };
+    const rows = data.map(([name, color, players, coach, playoffs]) => {
+      const roster = players.split(' ').map((s) => pick(s, false)).concat([pick(coach, true)]);
+      const stage1 = roster.reduce((sum, p) => sum + p.value, 0);
+      return { name, color, roster, stage1, playoffs, total: stage1 + playoffs };
+    });
+    const key = isStage ? 'stage1' : 'total';
+    rows.sort((a, b) => b[key] - a[key]);
+    const maxStage = Math.max(...rows.map((r) => Math.max(r.stage1, r.playoffs)));
+    const managers = rows.map((r, i) => ({
+      name: r.name, initial: r.name[0], rank: i + 1, roster: r.roster,
+      total: (isStage ? r.stage1 : r.total).toLocaleString('en-US'),
+      stages: [['Stage 1', r.stage1], ['Playoffs', r.playoffs]].map(([n, v]) => ({
+        name: n, pts: v.toLocaleString('en-US'),
+        barStyle: 'display: block; height: 100%; border-radius: 4px; width: ' + Math.round((v / maxStage) * 100) + '%; background: ' + r.color + ';',
+      })),
+      rankStyle: 'width: 14px; flex: none; text-align: center; font-size: 13px; font-weight: 700; color: ' + (i === 0 ? '#ff8f45' : '#a1a1aa') + ';',
+      cardStyle: 'border-radius: 16px; padding: 14px 12px 10px; display: flex; flex-direction: column; background: linear-gradient(180deg, color-mix(in srgb, ' + r.color + ' 14%, transparent), color-mix(in srgb, ' + r.color + ' 4%, #ffffff05) 50%); box-shadow: inset 0 0 0 1px color-mix(in srgb, ' + r.color + ' 35%, transparent), 0 1px 0 #ffffff0d inset, 0 10px 28px #00000059;',
+      avatarStyle: 'width: 30px; height: 30px; flex: none; border-radius: 50%; background: #2a2a30; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; box-shadow: 0 0 0 2px #131315, 0 0 0 3.5px ' + r.color + ';',
+    }));
+    const lens = 'background: #ffffff17; color: #f4f4f5; box-shadow: inset 1px 1px 0 #ffffff47, inset 0 0 0 1px #ffffff1a, 0 4px 12px #00000066;';
+    const scopes = [['total', 'Total'], ['stage', 'Stage 1'], ['playoffs', 'Playoffs']].map(([id, label]) => ({
+      label, selected: id === scope ? 'true' : 'false',
+      pick: () => { if (id !== 'playoffs') this.setState({ scope: id }); },
+      style: 'padding: 5px 11px; border-radius: 7px; border: 0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (id === scope ? lens : 'color: #a1a1aa; background: transparent;'),
+    }));
+    return { managers, scopes, isStage, isTotal: !isStage };
+  }
+}
+</script>
+</body>
+</html>

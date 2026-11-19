@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Matches</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#09090b}
+.pane{position:relative;-webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%)}
+.pane::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff33,#ffffff1a 40%,#ffffff00 75%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.row{transition:background .15s}
+.row:hover{background:#ffffff0d}
+.num{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="position: relative; min-height: 1180px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; font-family: Geist, Inter, system-ui, sans-serif; color: #f4f4f5; background: radial-gradient(70rem 50rem at 0% 0%, #ffb47a14, #ffb47a00 70%), radial-gradient(70rem 50rem at 100% 100%, #ff6a1a1c, #ff6a1a00 70%), #09090b;">
+  <div style="flex: 1 1 100%;">
+    <dc-import name="SiteLogo" hint-size="100%,52px"></dc-import>
+  </div>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 48px; box-sizing: border-box;">
+    <div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px;">
+      <dc-import name="TournamentHeader" tab="matches" hint-size="100%,110px"></dc-import>
+
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div role="tablist" aria-label="Stage" style="display: inline-flex; gap: 3px; padding: 3px; border-radius: 10px; background: #ffffff0a; box-shadow: inset 0 0 0 1px #ffffff12;">
+          <button type="button" role="tab" aria-selected="true" style="padding: 5px 11px; border-radius: 7px; border: 0; font: inherit; font-size: 13px; font-weight: 600; color: #f4f4f5; background: #ffffff17; box-shadow: inset 1px 1px 0 #ffffff47, inset 0 0 0 1px #ffffff1a, 0 4px 12px #00000066; cursor: pointer;">Stage 1</button>
+          <button type="button" role="tab" aria-selected="false" style="padding: 5px 11px; border-radius: 7px; border: 0; font: inherit; font-size: 13px; font-weight: 600; color: #a1a1aa; background: transparent; cursor: pointer;">Playoffs</button>
+        </div>
+        <div style="flex: 1;"></div>
+        <sc-if value="{{commissioner}}" hint-placeholder-val="{{ true }}">
+          <button type="button" aria-label="Sync results" title="Sync results" style="width: 36px; height: 36px; border-radius: 10px; border: 0; background: #ffffff0f; box-shadow: inset 0 0 0 1px #ffffff1f, inset 0 1px 0 #ffffff1a; color: #f4f4f5; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 13v8l-4-4"></path><path d="m12 21 4-4"></path><path d="M4.393 15.269A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.436 8.284"></path></svg>
+          </button>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px;">
+        <section aria-label="Schedule" class="pane" style="flex: 1 1 340px; max-width: 420px; min-width: 0; border-radius: 16px; padding: 4px 10px 10px; background: #141417e0; box-shadow: 0 1px 0 #ffffff0d inset, 0 12px 32px #00000059;">
+          <sc-for list="{{days}}" as="day" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 16px 8px 8px;">
+                <span style="font-size: 14px; line-height: 18px; font-weight: 600; color: #f4f4f5;">{{day.label}}</span>
+                <span style="font-size: 12px; color: #71717a;">{{day.count}}</span>
+              </div>
+              <sc-for list="{{day.matches}}" as="m" hint-placeholder-count="2">
+                <button type="button" class="row" aria-pressed="{{m.selectedAttr}}" onClick="{{m.select}}" style="{{m.rowStyle}}">
+                  <span style="display: flex; flex-direction: column; gap: 4px;">
+                    <sc-if value="{{m.live}}" hint-placeholder-val="{{ false }}"><span style="align-self: flex-start; padding: 1px 7px; border-radius: 999px; background: #ff7a1a; color: #1c0d02; font-size: 11px; font-weight: 600; box-shadow: 0 4px 12px #ff7a1a55;">Live</span></sc-if>
+                    <sc-if value="{{m.notLive}}" hint-placeholder-val="{{ true }}"><span class="num" style="font-size: 13px; color: #d4d4d8;">{{m.time}}</span></sc-if>
+                    <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: #71717a;">{{m.bo}}</span>
+                  </span>
+                  <span style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                    <sc-for list="{{m.sides}}" as="side" hint-placeholder-count="2">
+                      <span style="display: flex; align-items: center; gap: 8px; height: 22px; min-width: 0;">
+                        <span aria-hidden="true" style="width: 20px; height: 20px; flex: none; border-radius: 6px; background: #ffffff10; box-shadow: inset 0 0 0 1px #ffffff1f; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{side.logo}}</span>
+                        <span style="{{side.nameStyle}}">{{side.name}}</span>
+                        <span title="Picks on this team" style="display: flex; gap: 3px; flex: none;">
+                          <sc-for list="{{side.dots}}" as="d" hint-placeholder-count="2"><span title="{{d.name}}" style="{{d.style}}">{{d.initial}}</span></sc-for>
+                        </span>
+                        <span class="num" style="{{side.scoreStyle}}">{{side.score}}</span>
+                      </span>
+                    </sc-for>
+                  </span>
+                  <span style="display: flex; justify-content: center;">
+                    <sc-if value="{{m.alert}}" hint-placeholder-val="{{ false }}">
+                      <span role="img" aria-label="{{m.alertLabel}}" title="{{m.alertLabel}}" style="color: #ff8f45; display: flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>
+                    </sc-if>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+        </section>
+
+        <section aria-label="Match detail" class="pane" style="flex: 999 1 560px; min-width: 0; border-radius: 16px; padding: 20px 22px 18px; background: #141417e0; box-shadow: 0 1px 0 #ffffff0d inset, 0 12px 32px #00000059; display: flex; flex-direction: column; gap: 18px;">
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <span style="display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600;">
+              <span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 9px; background: #ffffff10; box-shadow: 0 0 12px #ff7a1a40, inset 0 0 0 1px #ffffff1f; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;">8</span>M80
+            </span>
+            <span class="num" style="font-size: 24px; font-weight: 700;">2<span style="color: #52525b; margin: 0 8px;">:</span><span style="color: #71717a;">1</span></span>
+            <span style="display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; color: #a1a1aa;">
+              Oxygen<span aria-hidden="true" style="width: 32px; height: 32px; border-radius: 9px; background: #ffffff10; box-shadow: inset 0 0 0 1px #ffffff1f; font-size: 13px; font-weight: 700; color: #f4f4f5; display: flex; align-items: center; justify-content: center;">O</span>
+            </span>
+            <span style="flex: 1;"></span>
+            <span class="num" style="font-size: 12px; color: #a1a1aa;">Mar 19 · 18:00 · BO3</span>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <sc-for list="{{maps}}" as="map" hint-placeholder-count="3">
+              <span style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 8px; background: #ffffff0a; box-shadow: inset 0 0 0 1px #ffffff12; font-size: 12px;">
+                <span style="color: #a1a1aa; font-weight: 500;">{{map.name}}</span>
+                <span class="num" style="font-weight: 600;"><span style="{{map.aStyle}}">{{map.a}}</span><span style="color: #52525b;">–</span><span style="{{map.bStyle}}">{{map.b}}</span></span>
+              </span>
+            </sc-for>
+          </div>
+
+          <sc-for list="{{teams}}" as="team" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; min-width: 0;">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) repeat(9, 40px) 52px; align-items: center; gap: 4px; height: 28px; padding: 0 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: #a1a1aa;">
+                <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: normal; color: #f4f4f5;">
+                  <span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: #ffffff10; box-shadow: inset 0 0 0 1px #ffffff1f; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;">{{team.logo}}</span>{{team.name}}
+                </span>
+                <span style="text-align: right;">K</span><span style="text-align: right;">D</span><span style="text-align: right;">A</span><span style="text-align: right;">FK</span><span style="text-align: right;">FD</span><span style="text-align: right;">3K</span><span style="text-align: right;">4K</span><span style="text-align: right;">ACE</span><span style="text-align: right;">CL</span><span style="text-align: right;">PTS</span>
+              </div>
+              <sc-for list="{{team.rows}}" as="r" hint-placeholder-count="6">
+                <div style="{{r.rowStyle}}">
+                  <span style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                    <sc-if value="{{r.isSub}}" hint-placeholder-val="{{ false }}">
+                      <span style="color: #a1a1aa; display: flex; flex: none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 10 5 5-5 5"></path><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg></span>
+                    </sc-if>
+                    <span style="position: relative; width: 24px; height: 24px; flex: none;">
+                      <svg width="24" height="24" viewBox="0 0 40 40" aria-hidden="true" style="display: block; border-radius: 50%; background: #1f1f24;"><circle cx="20" cy="16" r="7" fill="#4a4a53"></circle><path d="M5 40c1.6-9 7.6-13 15-13s13.4 4 15 13z" fill="#4a4a53"></path></svg>
+                    </span>
+                    <span style="{{r.handleStyle}}">{{r.handle}}</span>
+                    <sc-if value="{{r.coach}}" hint-placeholder-val="{{ false }}">
+                      <span role="img" aria-label="Coach" title="Coach" style="flex: none; width: 18px; height: 18px; border-radius: 5px; background: #ffffff14; box-shadow: inset 0 0 0 1px #ffffff26; display: inline-flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg></span>
+                    </sc-if>
+                    <sc-if value="{{r.owned}}" hint-placeholder-val="{{ false }}">
+                      <span title="{{r.owner}}" style="{{r.ownerStyle}}">{{r.ownerInitial}}</span>
+                    </sc-if>
+                    <sc-if value="{{r.needsPick}}" hint-placeholder-val="{{ false }}">
+                      <label style="display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; color: #ff8f45;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Assign sub"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                        <select aria-label="Replaces" onChange="{{assign}}" style="height: 24px; padding: 0 6px; border-radius: 6px; border: 1px solid #70707a; background: #18181b; color: #f4f4f5; font: inherit; font-size: 12px;">
+                          <option value="">–</option>
+                          <option value="dapr">dapr</option>
+                          <option value="mitch">mitch</option>
+                          <option value="none">None</option>
+                        </select>
+                      </label>
+                    </sc-if>
+                  </span>
+                  <sc-for list="{{r.stats}}" as="s" hint-placeholder-count="9">
+                    <span class="num" style="text-align: right; font-size: 12px; color: #a1a1aa;">{{s}}</span>
+                  </sc-for>
+                  <span class="num" style="{{r.ptsStyle}}">{{r.pts}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <svg aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.035; pointer-events: none;"><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence></filter><rect width="100%" height="100%" filter="url(#grain)"></rect></svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"commissioner":{"editor":"boolean","default":true},"subAssigned":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const commissioner = this.props.commissioner ?? true;
+    const assigned = st.assigned ?? (this.props.subAssigned ?? true);
+    const C = { Joseph: '#ffb1aa', Kai: '#c8d386', James: '#cfbeff', Stephen: '#5b9ddf', Will: '#f5bf81', Jackey: '#95deae', Amy: '#fab0d9', Terrance: '#72dee4' };
+    const fmt = (n) => (n < 0 ? '−' + Math.abs(n) : String(n));
+    const playerPts = ([k, d, a, fk, fd, k3, k4, ace, cl]) => 5 * k - 5 * d + 2 * a + 5 * fk - 5 * fd + 5 * k3 + 5 * k4 + 25 * ace + 10 * cl;
+    const maps = [['Ascent', 13, 8], ['Lotus', 10, 13], ['Sunset', 14, 12]].map(([name, a, b]) => ({
+      name, a, b,
+      aStyle: 'color: ' + (a > b ? '#f4f4f5' : '#71717a') + ';',
+      bStyle: 'color: ' + (b > a ? '#f4f4f5' : '#71717a') + ';',
+    }));
+    const roundsA = 13 + 10 + 14, roundsB = 8 + 13 + 12;
+    const gridRow = 'display: grid; grid-template-columns: minmax(0, 1fr) repeat(9, 40px) 52px; align-items: center; gap: 4px; height: 34px; padding: 0 8px; border-top: 1px solid #ffffff0d;';
+    const owner = (name) => name ? ({ owned: true, owner: name, ownerInitial: name[0],
+      ownerStyle: 'flex: none; width: 18px; height: 18px; border-radius: 50%; background: #2a2a30; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px ' + C[name] + ';' }) : { owned: false };
+    const row = (handle, stats, ownerName, extra) => {
+      const pts = extra && extra.pts !== undefined ? extra.pts : playerPts(stats);
+      const isSub = !!(extra && extra.isSub);
+      return {
+        handle, isSub, coach: !!(extra && extra.coach), needsPick: !!(extra && extra.needsPick),
+        stats: stats ? stats.map(String) : ['', '', '', '', '', '', '', '', ''],
+        pts: extra && extra.dash ? '–' : fmt(pts),
+        rowStyle: gridRow + (ownerName ? ' background: linear-gradient(90deg, color-mix(in srgb, ' + C[ownerName] + ' 10%, transparent), transparent 60%);' : '') + (isSub ? ' padding-left: 12px;' : ''),
+        handleStyle: 'min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ' + (isSub ? '#a1a1aa' : '#f4f4f5') + ';',
+        ptsStyle: 'text-align: right; font-size: 13px; font-weight: 700; color: ' + (extra && extra.dash ? '#71717a' : pts < 0 ? '#f87171' : isSub ? '#a1a1aa' : '#f4f4f5') + ';',
+        ...owner(ownerName),
+      };
+    };
+    const dapr = [12, 15, 3, 1, 2, 0, 0, 0, 0], jonaaa = [29, 26, 8, 3, 2, 1, 0, 0, 1];
+    const oxygenRows = [
+      row('Reduxx', [55, 46, 8, 11, 8, 4, 1, 0, 1], 'Kai'),
+      row('mitch', [36, 44, 19, 4, 6, 1, 0, 0, 1], 'Kai'),
+      row('Verno', [44, 42, 15, 5, 4, 2, 0, 0, 0], 'James'),
+      row('skuba', [37, 45, 14, 2, 5, 1, 0, 0, 0], null),
+      row('dapr', dapr, 'Stephen', assigned ? { pts: playerPts(dapr) + playerPts(jonaaa) } : undefined),
+    ];
+    if (assigned) oxygenRows.push(row('Jonaaa6', jonaaa, null, { isSub: true }));
+    oxygenRows.push(row('Oxygen Coach', null, null, { coach: true, pts: 0 }));
+    if (!assigned) oxygenRows.push(row('Jonaaa6', jonaaa, null, { isSub: true, dash: true, needsPick: commissioner }));
+    const teams = [
+      { name: 'M80', logo: '8', rows: [
+        row('koalanoob', [52, 41, 9, 9, 6, 3, 1, 0, 1], 'Joseph'),
+        row('nitr0', [38, 40, 21, 3, 5, 1, 0, 0, 2], 'Joseph'),
+        row('zander', [47, 44, 12, 6, 7, 2, 1, 0, 0], null),
+        row('NiSMO', [41, 39, 17, 4, 3, 2, 0, 0, 1], null),
+        row('BcJ', [39, 43, 26, 2, 5, 1, 0, 0, 0], null),
+        row('M80 Coach', null, 'Will', { coach: true, pts: 2 * roundsA }),
+      ] },
+      { name: 'Oxygen', logo: 'O', rows: oxygenRows },
+    ];
+    const selectedId = st.selected ?? 'm1';
+    const dot = (name) => ({ name, initial: name[0],
+      style: 'width: 16px; height: 16px; border-radius: 50%; background: #2a2a30; font-size: 8px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px ' + C[name] + ';' });
+    const side = (name, score, picks, lost, played) => ({
+      name, logo: name[0], score: score === '' ? '–' : score, dots: picks.map(dot),
+      nameStyle: 'flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: ' + (lost ? 500 : 600) + '; color: ' + (lost ? '#8b8b93' : '#f4f4f5') + ';',
+      scoreStyle: 'width: 16px; flex: none; text-align: right; font-size: 15px; font-weight: 700; color: ' + (!played || lost ? '#71717a' : '#f4f4f5') + ';',
+    });
+    const match = (id, time, t1, s1, s2, t2, picks1, picks2, opts) => {
+      const o = opts || {};
+      const done = s1 !== '' && !o.live;
+      const selected = selectedId === id;
+      return {
+        time, bo: 'BO3', live: !!o.live, notLive: !o.live,
+        sides: [side(t1, s1, picks1, done && s1 < s2, s1 !== ''), side(t2, s2, picks2, done && s2 < s1, s2 !== '')],
+        alert: commissioner && !!o.alert, alertLabel: o.alert || '',
+        selectedAttr: selected ? 'true' : 'false',
+        select: () => { if (done) this.setState({ selected: id }); },
+        rowStyle: 'width: 100%; display: grid; grid-template-columns: 44px minmax(0, 1fr) 18px; align-items: center; gap: 12px; padding: 10px 8px; border: 0; border-radius: 10px; color: inherit; font: inherit; text-align: left; cursor: ' + (done ? 'pointer' : 'default') + '; background: ' + (selected ? '#ffffff12' : 'transparent') + '; box-shadow: ' + (selected ? 'inset 2px 0 0 #ff7a1a, inset 0 0 0 1px #ffffff14' : 'none') + ';',
+      };
+    };
+    const days = [
+      { label: 'Mar 19', matches: [
+        match('m1', '18:00', 'M80', 2, 1, 'Oxygen', ['Joseph', 'Will'], ['Kai', 'James', 'Stephen'], { alert: assigned ? '' : 'Assign subs' }),
+        match('m2', '21:00', 'TSM', 0, 2, 'Moist x Shopify', ['Amy'], ['Terrance', 'Will'], { alert: 'Scrape failed' }),
+      ] },
+      { label: 'Mar 20', matches: [
+        match('m3', '18:00', 'YFP', 2, 0, 'SaD', ['Kai', 'Jackey'], ['Amy']),
+        match('m4', '21:00', 'QoR', 1, 2, 'The Glazers', ['Terrance'], ['Stephen']),
+      ] },
+      { label: 'Mar 21', matches: [
+        match('m5', '18:00', 'Thinking Men', 1, 0, 'Winthrop University', ['Jackey'], ['James'], { live: true }),
+        match('m6', '21:00', 'Turtle Troop', '', '', 'Together We are Terrific', ['Joseph'], []),
+      ] },
+    ].map((d) => ({ ...d, count: d.matches.length + ' matches' }));
+    const assign = (e) => { if (e && e.target && e.target.value && e.target.value !== '') this.setState({ assigned: true }); };
+    return { commissioner, days, maps, teams, assign };
+  }
+}
+</script>
+</body>
+</html>

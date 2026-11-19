@@ -1,8 +1,10 @@
 # Fantasy VCT: Orchestrator Handoff
 
-You are the **orchestrator** for this project. You plan the work, hand work packages to subagents, review and simplify what they return, and commit it. Keep going, package after package, until **Checkpoint 1** is finished or you hit one of the stop conditions in §2.4.
+You are the **orchestrator** for this project. You plan the work, hand work packages to subagents, review and simplify what they return, and commit it. Keep going, package after package, until **Checkpoint 2** is finished or you hit one of the stop conditions in §2.4.
 
-**Stop after Checkpoint 1.** The user will re-plan the rest with what was learned. Checkpoints 2 and 3 are included only as context for design decisions; don't start them.
+**Checkpoint 1 is done** (§8). The user keeps polishing it on `main` while you work, so branch every package from the latest `main`, and merge `main` into your branch before reviewing.
+
+**Stop after Checkpoint 2.** Checkpoint 3 is included only as context for design decisions; don't start it.
 
 This file is the source of truth. If a subagent's opinion conflicts with it, this file wins. If the user conflicts with it, the user wins: update this file and keep going.
 
@@ -28,7 +30,9 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 | Joining | Users **join** a tournament themselves (picking their color as they join), up to 8. Only joined users are managers. Joining stays open until the commissioner **closes** it; starting a stage's draft closes it automatically, which locks in exactly who's playing. The commissioner can remove a manager or reopen joining. Anything odder gets fixed in the database (§2.0). |
 | Stages | **Created automatically from the stages listed on the VLR event page.** Each stage has its own draft (a redraft between stages). Tournament total = sum of stage totals. |
 | Roster | **5 players + 1 coach.** **No roles**: many pros play several roles now, so the app never tracks or enforces them. |
-| Coaches | Each team's head coach is in the draft pool. If VLR lists no coach for a team, create a placeholder named "`<Team name>` Coach" (capital C, for example "Sentinels Coach"). Coaches earn points from how their team performs; that formula is decided in checkpoint 2. |
+| Coaches | Each team's head coach is in the draft pool. If VLR lists no coach for a team, create a placeholder named "`<Team name>` Coach" (capital C, for example "Sentinels Coach"). Coaches score from their team's results (scoring table below). |
+| Subs | Subs aren't in the pool. When a sub plays a map in place of one of the team's pool players, the sub's stats for that map count for the player they replaced (§4.5). The app pairs them when it's unambiguous; otherwise the commissioner assigns the sub on the match. |
+| Swiss stages | A team that qualifies early plays fewer series (a 3-0 team plays 3; a 3-2 team plays 5). **Phantom series** even this out: once a team qualifies, each series it didn't need to play counts, for each of its picks (coach included), as that pick's own average series points in the stage. Eliminated teams get nothing for series they didn't play. Brackets and other formats are plain sums. |
 | Ownership | A player or coach can be on at most one roster per stage. No limit on picks from the same team. |
 | Draft phase | Live snake draft. Order randomized per stage. **6 rounds**: each manager picks 5 players and 1 coach, with the coach in any round. Running out the clock **autopicks a random legal choice**. |
 | Swap phase | After round 6 the snake keeps going. On your turn you either **swap** one of your rostered picks for an available one of the same kind (player for player, coach for coach), or **lock**. A swap ends your turn, and the released pick goes straight back into the pool. Locked managers are skipped. Running out the clock in this phase **locks your roster**. The draft ends when every manager has locked. |
@@ -51,7 +55,9 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 | Ace (5K round) | +25 (not also counted as a multi-kill) |
 | Clutch won (1v1 to 1v5) | +10 |
 | Sweep (2-0 in a Bo3, 3-0 in a Bo5) | +15 to every player on the winning team, once per series |
-| Coach | From team results. Formula to be decided at re-planning. |
+| Coach | **+2 per round** their team wins in the series, plus **+30 per map left unplayed** when their team wins the series. The loser gets no unplayed-map points. Examples: a Bo3 2-0 win scoring 13-8 and 13-9 earns 52 + 30 = 82; a Bo5 3-1 win earns +30 for the unplayed map. |
+
+A pickable's stage points are its points in every match of that stage, regardless of when the draft finished, plus any Swiss phantom series. A finished map counts as soon as it's scraped, even while the series is still live; the sweep bonus and coach points wait for the series to end. A manager's stage total is the sum of their 6 picks. The tournament total is the sum of the stage totals.
 
 ### 1.1a Settled with the user (don't propose these again)
 
@@ -60,6 +66,8 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 - **VLR stays the data source** under the §2.5 etiquette (minimal, cached requests). Don't suggest other sources.
 - **The user creates the Discord app** later. Until then, use the dev login (§4.3); don't ask for credentials during Checkpoint 1.
 - **No backups for now.**
+- **Stats fixes are DB edits.** A failed or wrong scrape is fixed in Drizzle Studio, or by asking Claude Code to fill it in from VLR. There's no stats-edit UI.
+- **Scraping is automatic from Checkpoint 2:** every 15 minutes from a match's scheduled time until its stats are in. A live series' finished maps count; a map in progress never does. The commissioner's Sync button runs the same job immediately.
 
 ### 1.2 Open questions (use these defaults, and flag them in the checkpoint report)
 
@@ -68,6 +76,10 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 - **Form window:** form stats and top 3 agents come from each player's VLR page over the **last 90 days**. If the page doesn't offer 90 days, use the closest window it has.
 - **Stats data source:** VLR stays the source. It's the only free source with multi-kills and per-player clutches, but its terms of service forbid bots and systematic scraping, so keep requests minimal and cached (§2.5). Liquipedia's LPDB API is a possible later source for schedules and rosters (its rows carry VLR ids). Keep all VLR parsing behind `src/server/vlr/` so a source can be swapped later.
 - **Daily standings post** (checkpoint 3): 00:00 America/Los_Angeles. **Standings tiebreak** (checkpoint 2): best single pick, then alphabetical.
+- **Multi-kills** (checkpoint 2): only 3K and 4K rounds score; 2K rounds score nothing, and an ace counts only as an ace. Overtime rounds count like any other round. If the Split 1 re-score (package 2.2) doesn't match the spreadsheet, find the reading that reproduces it and report it; don't change the rules silently.
+- **Sweep bonus and subs** (checkpoint 2): the +15 goes to each pool player on the winning team who played at least one map of the series, either themselves or through a sub assigned to them.
+- **Past events** (checkpoint 2): players come from the event page's registered rosters, with the team page as a fallback. Head coaches come from the team's *current* page, so an old event can show today's coach. That's fine; the app is for live events. Stats are keyed by VLR player id, so scoring old matches still works.
+- **Swiss phantom average** (checkpoint 2): a pick's average is its points ÷ the series its team has played in the stage, where a series the pick sat out counts as 0 and only `ok` matches count (a live or unfinished scrape doesn't). The phantom series start counting as soon as the team reaches the wins it needs to advance.
 
 ---
 
@@ -144,26 +156,26 @@ If a package fails review twice, take it back: narrow its scope, or do it yourse
 
 ### 2.3 Checkpoint gate
 
-At the end of Checkpoint 1:
+At the end of each checkpoint:
 1. Run the full demo script end to end.
 2. Report to the user:
    - what works
    - how to run it
    - the defaults you used from §1.2
    - anything blocked
-   - screenshots of the tournaments page, the draft room and the rosters
+   - screenshots of every screen the checkpoint added or changed
 3. End the report with **"Notes for re-planning"**:
    - what was harder or easier than expected
-   - what VLR's pages actually look like, as far as checkpoint 2 depends on them
+   - what VLR's pages actually look like, as far as the next checkpoint depends on them
    - shortcuts later work should know about
    - suggested changes to Checkpoints 2 and 3
-4. **Stop.** Don't start Checkpoint 2.
+4. **Stop.** Don't start the next checkpoint.
 
 ### 2.4 Stop and ask the user
 
 - **Never** create a GitHub repo, add a git remote or push.
 - **Ask before** deploying, creating a Discord application or webhook, or anything else that leaves this machine. Fetching VLR pages and images under §2.5 is fine.
-- **Don't ask for Discord secrets in Checkpoint 1** (§1.1a). Build the OAuth code env-gated and test it with mocked Discord responses.
+- **Don't ask for Discord secrets in Checkpoints 1 or 2** (§1.1a). Build the OAuth code env-gated and test it with mocked Discord responses.
 - **Ask** when a game rule is ambiguous and not covered by §1.
 - Build and demo everything with the dev login (§4.3).
 
@@ -216,7 +228,7 @@ Don't run `.github/bootstrap.sh` (it needs a GitHub remote). The template's `.gi
 | Live draft | Server-Sent Events. Actions are POSTs. |
 | HTML parsing | `cheerio` |
 | Images | Downloaded once into an `images` table and served from `/api/images/:id` with long cache headers. |
-| Scheduling (checkpoint 3) | `node-cron`, in-process |
+| Scheduling (checkpoint 2) | An in-process `setInterval` ticker, once a minute. No cron library. |
 
 ### 3.3 Layout (target)
 
@@ -225,19 +237,22 @@ src/shared/
   entities.ts          User, Tournament, Stage, Team, Pickable, RosterEntry, DraftState, MANAGER_COLORS…
   api.ts               API_ROUTES + request/response types
   snake.ts             seatForTurn(turnNo, seatCount)
+  scoring.ts           (cp2) points, coach points, sub pairing, Swiss phantom series: pure functions
 src/server/
   db/                  schema.ts, client.ts, migrations/, seed-dev.ts
   auth/                discord.ts, dev-login.ts, session.ts, access.ts
   vlr/                 fetch.ts (throttle + cache), event.ts, matches.ts, team.ts, player.ts, images.ts
   vlr/__fixtures__/    saved VLR HTML
+  vlr/match.ts         (cp2) match page parser
+  sync.ts              (cp2) sync job + 1-minute ticker: schedule refresh, scrape started matches
   draft/               service.ts (actions, turn advance, timer, undo), sse.ts
-  routes/              members.ts, tournaments.ts, stages.ts, teams.ts, draft.ts, images.ts
+  routes/              members.ts, tournaments.ts, stages.ts, teams.ts, draft.ts, images.ts, (cp2) matches.ts, standings.ts
 src/client/
   theme.ts             MUI theme from docs/design-system/tokens.json
   layout/              AppShell (two background glows + site logo + content column)
   components/          SiteLogo, Pane, LiquidLens, SegmentedControl, StatusBadge, TournamentCard, PlayerPhoto, PlayerChip, AgentIcons, ManagerAvatar, ColorPicker, TeamLogo, StatChip
   glass/               displacement-map.ts (squircle bezel, Snell refraction, quadrant mirror), lens-filter.tsx (SVG filter defs)
-  pages/               Tournaments, Tournament (Rosters, Draft, Teams, Settings), Members, Login
+  pages/               Tournaments, Tournament (Rosters, Matches (cp2), Draft, Teams, Settings), Members, Login
 ```
 
 ### 3.4 Environment
@@ -278,6 +293,7 @@ stages             id, tournament_id, name, position,
                    vlr_stage_keys_json (VLR stage keys this stage covers; [] if manual), source: vlr | manual,
                    status: setup | drafting | paused | complete,
                    pick_seconds (default 90), current_turn_no, turn_deadline (nullable ISO), created_at
+                   -- checkpoint 2 adds: format: standard | swiss (default standard), swiss_wins (nullable: wins to advance)
 stage_managers     stage_id, user_id, seat, locked_at (nullable)            PK(stage_id, user_id), unique(stage_id, seat)
 stage_pool         stage_id, pickable_id, removed (bool)
 roster_entries     stage_id, user_id, pickable_id                          unique(stage_id, pickable_id)
@@ -288,10 +304,17 @@ images             id, source_url (unique), content_type, bytes (blob), fetched_
 raw_pages          url (PK), fetched_at, html
 matches            id, tournament_id, vlr_id (unique), stage_key, team1_id (nullable while TBD), team2_id (nullable),
                    best_of, scheduled_at (nullable), status: upcoming | live | completed, score1, score2
-                   -- checkpoint 2 adds: scrape_status, scrape_error, scraped_at, recap_posted_at
--- checkpoint 2 (sketch)
-player_map_stats   match_id, map_no, pickable_id, team_id, agent, k, d, a, fk, fd, mk3, mk4, aces, clutches,
-                   source: scraped | manual
+                   -- checkpoint 2 adds: scrape_status: pending | ok | failed (default pending),
+                   --   scrape_error (nullable), scraped_at (nullable, last successful save),
+                   --   checked_at (nullable, last attempt)
+                   -- checkpoint 3 adds: recap_posted_at
+-- checkpoint 2
+match_maps         match_id, map_no, map_name, team1_rounds, team2_rounds              PK(match_id, map_no)
+player_map_stats   match_id, map_no, vlr_player_id, handle, team_id → teams,
+                   k, d, a, fk, fd, mk3, mk4, aces, clutches                           PK(match_id, map_no, vlr_player_id)
+sub_assignments    match_id, map_no, sub_vlr_player_id,
+                   replaces_pickable_id → pickables (nullable: replaced nobody)   -- only the commissioner's choices
+                                                                                       PK(match_id, map_no, sub_vlr_player_id)
 ```
 
 Rules:
@@ -305,7 +328,8 @@ Rules:
   - Live if any match has started
   - Upcoming otherwise
 - **Progress** = completed matches ÷ all matches in the tournament (per stage on the Settings tab).
-- **Points** (checkpoint 2) are always computed on read.
+- **Points** (checkpoint 2) are always computed on read. Nothing stores a point total.
+- **Stats are keyed by VLR player id**, not pickable id, because subs aren't pickables. Join to `pickables.vlr_id` when scoring.
 
 ### 4.2 Draft engine
 
@@ -424,6 +448,74 @@ Pasting an event link runs the whole import, with a progress indicator. There's 
 
 **Anything else** (merging stages, fixing a team, player or coach, odd data) is done in Drizzle Studio (`npm run db:studio`). There's no edit UI for it.
 
+### 4.5 Match stats and scoring (checkpoint 2)
+
+**Sync job** (`src/server/sync.ts`). One job, run three ways: by the ticker, by the hourly schedule refresh, and by the commissioner's Sync button. Only one run at a time; a run requested while one is going is dropped.
+
+**When it runs:**
+- **Ticker:** once a minute, the server checks for **due** matches: `scheduled_at` has passed (or VLR already shows the match live or completed), `scrape_status` isn't `ok`, and `checked_at` is empty or at least 15 minutes old. So a match at 18:00 is checked at about 18:00, 18:15, 18:30… until it's `ok`. `isDue(match, now)` is a pure function with tests.
+- **Schedule refresh:** each tournament that hasn't ended refetches its event matches page hourly, and also at the start of any run that has a due match in it. This keeps times, statuses, scores and TBD teams current, so a postponed match simply becomes due later.
+- **Sync button** (`POST /api/tournaments/:id/sync`, commissioner only): refresh the schedule, then treat every started, not-`ok` match as due now. It returns `202` immediately and the job runs in the background; `GET /api/tournaments/:id/matches` carries `syncRunning` so the button can spin.
+- The ticker starts with the server, never in tests. `SCHEDULER=off` disables it.
+
+**Scraping one match:**
+1. Fetch its match page(s) **fresh**, bypassing the cache (store the result in `raw_pages` anyway). Use the saved fixtures to find which tabs hold the per-map scoreboard, the multi-kills and the clutches; don't guess. Parse:
+   - the real best-of and both teams' VLR ids. The match list has neither (§8 notes), so correct `best_of`, `team1_id` and `team2_id` here.
+   - each map's name and both teams' rounds
+   - each player's per-map K, D, A, FK, FD, 3K, 4K, 5K (aces) and clutches won (1v1 to 1v5 summed), with their VLR id, handle and team
+2. **Keep only finished maps.** A map is finished when the winner has at least 13 rounds and leads by at least 2 (13-11 and 14-12 are finished; 12-12 and 13-12 are not). A map in progress is dropped entirely, even if VLR shows partial stats for it. Never use VLR's "all maps" totals, which include the live map.
+3. **Sanity check**, and nothing more:
+   - every finished map has 5 players per team
+   - no negative numbers
+   - once the match is completed: the maps won equal the series score
+4. **Save in one transaction:** replace the match's `match_maps` and `player_map_stats` rows with the finished maps, set `scraped_at`, and set `scrape_status = ok` only if the match is completed and passed every check. Otherwise it stays `pending` and gets checked again in 15 minutes.
+5. **On a fetch, parse or check error:** keep the rows already saved, set `scrape_status = failed` and `scrape_error`. A failed match stays due, so it retries every 15 minutes and clears itself if VLR fixes the page.
+6. Always set `checked_at`.
+
+More rules:
+- The job **never touches a match that's `ok`**. To re-scrape one, set it back to `pending` in Drizzle Studio. To fix one by hand, write its rows in Drizzle Studio and set it to `ok`.
+- The job's fetcher is a parameter, so tests and the demo can feed it fixtures.
+- Expected load: one matches page per tournament per hour, plus about 2 pages per started match every 15 minutes until it's done. All of it goes through the §2.5 throttle.
+- A match's saved finished maps count toward points whatever its status. Unscraped maps score 0. The Matches tab flags `failed` matches for the commissioner.
+
+**Sub pairing** is computed on read, together with points. Only the commissioner's choices are stored.
+- Work per map and per team:
+  - **missing:** that team's player pickables that are **rostered in the match's stage** (by any manager) and have no stats row on that map. Event-registered players nobody rostered don't count, so a registered sub sitting on the bench never causes ambiguity.
+  - **subs:** the players in that team's map rows who aren't pickables, or who are pickables but not rostered in that stage
+- Pair them like this:
+  - **0 missing:** the subs replace nobody.
+  - **missing but no subs:** the missing players score 0 for that map.
+  - **exactly 1 missing and 1 sub:** the sub is credited to the missing player automatically.
+  - **anything else:** use the stored `sub_assignments` rows. The match needs attention (`triangle-alert`, commissioner only) until every sub on that map has a row. For each sub, the commissioner picks one of that map's missing players, or nobody (`PUT /api/matches/:id/subs`).
+- Pairing happens on read, so it follows the rosters. Drafting after a match was scraped still pairs correctly.
+
+**Scoring** (`src/shared/scoring.ts`, pure functions). The config is the defaults from §1.1 with `tournaments.scoring_json` merged over them.
+- **Player points for one map row:**
+  ```
+  5k − 5d + 2a + 5fk − 5fd + 5·mk3 + 5·mk4 + 25·aces + 10·clutches
+  ```
+- **A player pickable's points in a match:**
+  - its own map rows, plus the rows of every sub assigned to it
+  - plus **+15** if its team swept (2-0 in a Bo3, 3-0 in a Bo5) and it played at least one map, either itself or through an assigned sub. Only once the match is `completed`.
+- **A coach's points in a match:**
+  ```
+  2 × (rounds their team won, across every map) + 30 × (best_of − maps played), the second part only if their team won the series
+  ```
+  Only once the match is `completed`; before that the coach has 0 for it. It reads the coach's team from `pickables.team_id`.
+- A **stage** includes the matches whose `stage_key` is in that stage's `vlr_stage_keys_json`.
+- **Swiss phantom series:**
+  - **Detecting Swiss:** import and sync set `format = swiss` on stages whose VLR name contains "Swiss" (case-insensitive). They also set `swiss_wins = log2(distinct teams in the stage's matches) − 1`, so 16 teams need 3 wins and 8 teams need 2. Both can be corrected in Drizzle Studio.
+  - **The count:** once a team has `swiss_wins` wins in the stage, it gets `2 × swiss_wins − 1 − series played` phantom series. A 3-0 team gets 2, a 3-1 team gets 1, and a 3-2 team gets 0. Eliminated teams get none.
+  - **The value:** each phantom series is worth the pick's own average series points in that stage (§1.2), for players and coaches alike.
+  - **On screen:** phantom points are included in pick and manager totals in standings, Teams and the pool. They don't appear in the Matches tab, which only shows real matches. There's no separate UI.
+- **Standings:** a manager's points in a stage are the sum of their `roster_entries` picks' points over that stage's matches. The total is the sum over stages. Rank by points, then by best single pick in that scope, then by display name.
+
+**API:**
+- `GET /api/tournaments/:id/standings`: per manager, the total, the per-stage totals, and per stage each roster entry with its points (sub credit and phantom series included)
+- `GET /api/tournaments/:id/matches`: the schedule with scores, `scrape_status` and a `needsAttention` flag (failed or unassigned subs), plus which managers have picks in each match
+- `GET /api/matches/:id`: the maps, and per team its players and coach with series stat totals, points, owner (in that match's stage), and subs with their assignment
+- the teams and draft-pool payloads gain each pickable's tournament points
+
 ---
 
 ## 5. Design system and UI
@@ -488,10 +580,13 @@ Read `docs/design-system/README.md` (rules) and `docs/design-system/tokens.json`
   | player | `user` |
   | teams | `shield` |
   | draft tab | `layout-grid` |
-| join | `user-plus` |
-| close or open joining | `lock` / `lock-open` |
+  | join | `user-plus` |
+  | close or open joining | `lock` / `lock-open` |
   | settings tab | `settings-2` |
-  | matches | `calendar` |
+  | matches, matches tab | `calendar` |
+  | sync results | `cloud-download` |
+  | needs attention (failed scrape, unassigned sub) | `triangle-alert` |
+  | sub standing in | `corner-down-right` |
   | pick timer | `timer` |
   | pause | `pause` |
   | undo | `undo-2` |
@@ -543,10 +638,11 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
     - the name and stage chips
     - stat chips: team count, the joined managers' avatar stack with `joined/8`, matches played/total
     - a progress bar of matches played ÷ total
+    - once any points exist, a **top-3 block**: rank, avatar, name and total (mono) for the three leading managers. The managers stat chip then becomes a `users` icon with `joined/8` instead of the 8-avatar stack, which also fixes the card wrapping at 8 managers.
     - a **Join** button (accent, `user-plus`) while joining is open and you haven't joined; joining also has you pick your color
 - **Tournament page:**
-  - **Header:** event logo, name, status badge, a **matches pill** (calendar icon, `18/32`, mini bar) and the manager avatar stack. Clicking your own avatar opens the ColorPicker.
-  - **Tabs:** **Rosters**, **Draft**, **Teams**, plus **Settings** for the commissioner.
+  - **Header:** event logo, name, status badge, a **matches pill** (calendar icon, `18/32`, mini bar) and the manager avatar stack, **ordered by rank** once points exist. Clicking your own avatar opens the ColorPicker.
+  - **Tabs:** **Rosters**, **Matches**, **Draft**, **Teams**, plus **Settings** for the commissioner.
 - **Members** (commissioner):
   - one **Add** field for a Discord username
   - dense rows: avatar (dimmed until first login), display name, `@username`, and a remove icon
@@ -573,6 +669,7 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
 - **Top 3 agents:** shown only in the draft pool, as tiny agent icons with the agent name as the tooltip.
 - **Coach chip:** PlayerPhoto, the handle, and **right after the handle** (not pushed to the far edge) a small badge holding the Lucide `graduation-cap` icon. A placeholder shows VLR's default picture with the team logo, reads "Sentinels Coach", and has no link.
 - **Form stats** (pool only): `RTG`, `ACS` and `K/D` in mono, right-aligned.
+- **Points** (checkpoint 2): PlayerChips on Teams and Rosters show points right-aligned in mono (tournament points on Teams, the selected scope's points on Rosters). A pick whose team hasn't played yet shows `–`.
 
 ### 5.5 Draft room (the Draft tab)
 
@@ -608,7 +705,7 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
   - **Search** by handle or team; `/` focuses it.
   - **Kind toggle:** players or coaches (lens pill).
   - **Team filter:** one row of 16 compact team-logo toggles. Several can be selected, and none selected means all teams.
-  - **Sort:** click a column header (`PLAYER` A–Z, `RTG`, `ACS`, `K/D`). The default is RTG, descending; nulls sort last.
+  - **Sort:** click a column header (`PLAYER` A–Z, `PTS`, `RTG`, `ACS`, `K/D`). `PTS` is tournament points so far (checkpoint 2), so later stages' redrafts can use it. The default is PTS descending once any points exist, otherwise RTG descending; nulls sort last.
   - **Rows** are 42px: PlayerPhoto, handle, 3 agent icons, a VLR link on hover, then the stats in mono.
   - Keyboard: ↑/↓ moves through rows, and Enter acts on the selected one.
 - **Acting on your turn:**
@@ -621,22 +718,76 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
   - When it isn't your turn, there are no action buttons and the rows are read-only.
 - **Recent actions strip:** avatar plus a Lucide icon (a dot for a pick, `arrow-left-right`, `lock`, plus `clock` for timeouts) plus the handle. No sentences.
 
-### 5.6 Rosters tab
+### 5.6 Rosters tab (standings)
 
-- Stage chips to switch stages.
-- A **4 × 2 grid** of manager cards, so 8 fit on one screen. Each card has:
+The Rosters tab doubles as the standings.
+
+```
+  [Total][Stage 1][Playoffs]
+  ┌ 1 (Ja) James  🔒 2,213 ┐┌ 2 (W) Will  🔒 2,154 ┐ …          ← rank, avatar, name, lock, total (mono, large)
+  │ ◐ aspas            523 ││ ◐ mada           755 │
+  │ ◐ OXY              397 ││ ◐ Asuna          377 │              ← one column: 5 players + coach,
+  │ ◐ Derrek           211 ││ …                    │                34px rows, points right-aligned
+  │ ◐ khalil           156 ││                      │
+  │ ◐ Verno            650 ││                      │
+  │ ◐ mCe 🎓           276 ││                      │
+  └────────────────────────┘└──────────────────────┘
+  (4 more cards in a second row)
+```
+
+- **Scope chips:** **Total**, then one per stage. The default is Total.
+- A **4 × 2 grid** of manager cards, **in rank order** (left to right, then the next row), so 8 fit on one screen.
+- **Every card has:**
   - the manager's tint
-  - an avatar header with a lock icon once locked
-  - a **2-column × 3-row grid** of the 5 player chips and the coach chip (same compact chip as Teams)
-- Space reserved for points in checkpoint 2.
+  - a header with the rank number (mono), the avatar, a lock icon once locked, and the scope's total (mono, large, right-aligned)
+  - **in a stage scope:** **one column of 6 rows** (34px each): the 5 players, then the coach, each a PlayerPhoto (26px), the handle and its stage points in mono, right-aligned. Negative points use `loss` with a real minus sign. One column instead of Rosters' 2 × 3 grid keeps long handles from truncating once points share the row.
+  - **in Total:** one compact row per stage: the stage name, a thin bar in the manager's color (that subtotal ÷ the largest stage subtotal), and the subtotal (mono). No chips.
+- The rank number is mono and muted; #1's is `accent-text`.
+- Before any points exist, the cards keep their draft order and show `–` for totals.
 
-### 5.7 Implementation
+### 5.7 Matches tab (checkpoint 2)
+
+```
+  [Stage 1][Playoffs]                                                         [⇩]   ← sync (commissioner)
+  ┌ Schedule (≤420px) ──────────────┐  ┌ Match detail ─────────────────────────────────────────┐
+  │ Mar 19  2 matches               │  │ [8] M80  2 : 1  Oxygen [O]          Mar 19 · 18:00 · BO3 │
+  │ 18:00 [8] M80        (J)(W)  2  │  │ [Ascent 13–8] [Lotus 10–13] [Sunset 14–12]            │
+  │ BO3   [O] Oxygen  (K)(J)(S)  1 ⚠│  │ M80          K  D  A  FK FD 3K 4K ACE CL  PTS         │
+  │ 21:00 [T] TSM           (A)  0  │  │ koalanoob (J) 52 41 9 …                       …         │
+  │ BO3   [M] Moist x S… (T)(W)  2  │  │ …                                                     │
+  │ Mar 21  2 matches               │  │ Oxygen       K  D  A …                                 │
+  │ Live  [T] Thinking Men  (J)  1  │  │ dapr (S) …   ↳ Jonaaa6 …                               │
+  └─────────────────────────────────┘  └───────────────────────────────────────────────────────┘
+```
+
+- **Stage chips**, and the commissioner's **Sync** icon button (`cloud-download`) at the right. Scraping is automatic (§4.5); Sync just runs it now. The button spins while `syncRunning` is true.
+- **Auto-refresh:** while the tournament has a live or due match, the Matches, standings and tournament queries refetch every 60 seconds.
+- **List + detail.** A narrow schedule panel (max 420px) on the left and the selected match's detail filling the rest. Below ~960px they stack, detail under the list. The most recent completed match is selected by default.
+- **Schedule:** grouped under date headers (`Mar 19` plus a muted match count). Times are in the viewer's local timezone. **Each row** (about 64px):
+  - left: the start time, or a **Live** accent badge, with `BO3`/`BO5` under it
+  - **the two teams stacked**, one line each: logo, name, then small avatars of the managers who own a pick on *that team*, then the score in mono at the right edge. The winner's name and score are bright; the loser's are dim. Upcoming scores show `–`.
+  - **for the commissioner only:** `triangle-alert` at the far right when the match needs attention. The tooltip says "Scrape failed" or "Assign subs".
+  - the selected row gets a lifted background and a 2px accent edge on the left. Upcoming rows aren't selectable. A live row is, once it has a finished map: the detail shows the maps so far, and the in-progress map isn't listed.
+- **Detail panel** for the selected completed match:
+  - a header: both logos and names with the series score between them, and the date, time and format at the right
+  - one chip per map: the map name and its score
+  - **two team tables, stacked.** Each has its 5 players and coach as rows. Each row shows:
+    - the PlayerPhoto and handle
+    - the owner's avatar ring, if the pick is owned in this stage
+    - the series totals in mono: `K D A FK FD 3K 4K ACE CL`
+    - `PTS` in bold mono
+
+    The coach row shows only `PTS`.
+  - **subs** show under the player they replaced, with `corner-down-right` and the sub's handle and stats. For the commissioner, an unassigned sub has a compact select listing that map's missing players plus "None".
+- Nothing else: no recap text, no per-map stat breakdown.
+
+### 5.8 Implementation
 
 - Generate `src/client/theme.ts` from the tokens, using the README's "In the app (MUI)" mapping.
 - Expose every token as a CSS custom property on `:root`, through `CssBaseline` global styles.
 - Build the shared components in §3.3 once and reuse them. Don't restyle panes ad hoc.
 - Respect `prefers-reduced-motion`.
-- **Mockups:** `docs/mockups/*.dc.html` (also browsable at <https://claude.ai/artifact/N6dULcNbss7tDJ1K9KiEWq>, private) show every Checkpoint 1 screen with sample data. They're the visual target; open the source for exact sizes and spacing. Where they and this plan disagree, this plan wins.
+- **Mockups:** `docs/mockups/*.dc.html` (also browsable at <https://claude.ai/artifact/N6dULcNbss7tDJ1K9KiEWq>, private) show every Checkpoint 1 screen with sample data. Checkpoint 2 has its own row on the canvas: `Standings.dc.html` (click Total / Stage 1), `Matches.dc.html` (tweaks: commissioner, sub assigned) and `CardTop3.dc.html`; `TournamentHeader.dc.html` gains the Matches tab. Points on Teams chips and the pool's `PTS` column have no mockup: follow §5.4 and §5.5. They're the visual target; open the source for exact sizes and spacing. Where they and this plan disagree, this plan wins.
 
 ---
 
@@ -808,21 +959,83 @@ Packages run in order unless marked **‖ parallel-safe**. Each one goes through
 
 *Accept:* demo steps 8 and 9, then the full demo script.
 
-### Checkpoint 2: Stats, scoring and standings (tentative; re-planned after Checkpoint 1, don't start)
+### Checkpoint 2: Stats, scoring and standings
 
-This is here only so Checkpoint 1's schema doesn't block it.
-- A match parser (overview and performance tabs) built on saved fixtures.
-- Scoring in `src/shared/scoring.ts`.
-  - Acceptance: re-score VCT Challengers NA 2024 Split 1 and match the spreadsheet (**mada = 755**, **Reduxx = 601**).
-  - The spreadsheet is at `/mnt/c/Users/sxc/Downloads/VCT Challengers NA 2024 Split 1 Fantasy.xlsx`. It's a downloaded file: copy it to a scratch directory and read it with `python -I` and openpyxl.
-- **Coach scoring** from team results: the formula needs deciding with the user.
-- **Substitutions.** Subs are left out of the pool at import. When a sub plays instead of a drafted player, work out the replacement from match data. The rules need deciding with the user.
-- Sanity checks on scraped stats, with manual stat entry as the fallback when a scrape fails.
-- Standings on tournament cards and pages, plus players and matches views, kept visual and minimal-text.
+**Goal:**
+- Matches fill in with per-map stats from VLR automatically: every 15 minutes from their scheduled time, map by map as each one finishes, until the series is done.
+- Every rostered player and coach scores by §1.1, including subs standing in.
+- The standings show on the Rosters tab, the home card and the header.
+- A Matches tab shows the schedule, results and each match's points.
 
-### Checkpoint 3: Running over time (tentative; re-planned after Checkpoint 1, don't start)
+**Demo script (checkpoint gate):**
+1. **Re-score check:** the package 2.2 acceptance passes. Split 1 player totals match the spreadsheet, and any differences are reported.
+2. Import a current or recent VLR event that already has completed matches in its first stage. The 8 dev managers join and draft stage 1. A short pick timer with autopicks is fine.
+3. **Matches tab:** the schedule is grouped by date. Press **Sync** as the commissioner (it spins, then stops), and the completed matches get scores. Then set one `ok` match back to `pending` with `checked_at` cleared in Drizzle Studio: within a minute the ticker scrapes it again without anyone pressing Sync.
+4. **Force a failure:** from a scratchpad script, run the job for one `pending` match against the dev DB with a fetcher that returns a corrupted fixture. It shows `triangle-alert` with "Scrape failed". Press Sync (real fetcher) and the alert clears.
+5. **Live series:** from a scratchpad script, run the job for one match with a fetcher returning the live fixture (§2.1). Only its finished maps appear in the detail and in points; the coach and sweep bonus are 0; the match stays `pending`.
+6. **Match detail:** select a completed match. It shows map scores, both teams' rows with owner rings, stat totals and points. Check one player's and one coach's points by hand against §1.1.
+7. **Subs:** find a match where a sub played; if there isn't one, set one up in the DB from a fixture. An auto pairing credits the replaced player. Then create an ambiguous case (2 missing, 1 sub). The alert shows "Assign subs"; assign the sub, and that player's and manager's points change.
+8. **Rosters:** cards are ranked, and the Total and stage scopes agree with the match detail sums. The home card shows the top 3, and the header stack is in rank order.
+9. **Teams** chips show points. In stage 2's draft pool, the `PTS` column sorts.
+10. **Log in as a member:** there's no Sync button, no alerts and no sub selects.
 
-- A scheduler: event sync, scraping completed matches, a nightly refetch and a standings snapshot.
+**Packages**
+
+**2.1 Match scrape and sync.** Covers the §4.1 checkpoint 2 tables and stage columns (with a migration), Swiss detection on import and sync (§4.5), the §4.5 match parser, the finished-map rule, the sanity checks, sub pairing, the sync job, the ticker and the endpoint. Commit these fixtures under `__fixtures__/`:
+- a Bo3 2-0 match
+- a Bo3 2-1 match with an overtime map
+- a match where a sub played
+- a **live** match with at least one finished map and one in progress. If no match is live while you work, make it by editing the 2-1 fixture so its last map reads, say, 9-7 with partial stats, and say so in the report.
+- the tabs those need for multi-kills and clutches
+
+*Accept:*
+- The parser extracts every §4.5 field from the fixtures, including the real best-of and team ids.
+- A corrupted fixture fails the sanity check and saves only `failed` plus the error.
+- Sync is idempotent and never touches `ok` matches.
+- The live fixture saves only its finished maps and stays `pending`. Finished-map rule tests: 13-11 and 14-12 count; 12-12 and 13-12 don't.
+- `isDue` tests: not before `scheduled_at`; due at it; not again within 15 minutes of `checked_at`; `failed` stays due; `ok` never is.
+- Two overlapping runs don't both scrape.
+- Sub pairing unit tests (pure, in `src/shared`), using rostered picks only:
+  - 1 missing and 1 sub: auto-paired
+  - 0 missing: the sub replaces nobody
+  - 2 missing and 1 sub: needs attention until it's assigned
+  - a registered, unrostered bench player isn't counted as missing
+
+**2.2 Scoring and standings API.** Covers `scoring.ts` and the §4.5 API, including `PUT /api/matches/:id/subs`.
+
+*Tests:*
+- the player formula
+- an ace isn't also counted as a multi-kill
+- the sweep bonus: once per series, only for those who played (or whose sub did), and not while the match is live
+- a live match: its finished maps score; the coach gets 0 until it's completed
+- sub credit
+- coach points for a 2-0, a 2-1, a Bo5 3-0 and 3-1, and a loss (no unplayed-map points)
+- a stage only counts its own matches
+- Swiss phantom series: a 3-0 team gets 2 at the pick's average, a 3-1 team gets 1, a 3-2 team and eliminated teams get 0, coaches use their own average, and a sat-out series counts as 0 in the average
+- the tiebreak
+
+*Accept, the Split 1 re-score:*
+1. Import <https://www.vlr.gg/event/1971/challengers-league-2024-north-america-stage-1/regular-season> (the spreadsheet's event) and sync every completed regular-season match. That's about 40 match pages under §2.5, so a few minutes.
+2. Using a one-off script in the scratchpad (not committed), compute each player's **raw** total by VLR id: their own map rows plus the sweep bonus, with no sub credit and no phantom series (the Split 1 regular season wasn't Swiss). Compare it against the spreadsheet's Stats sheet, column `Points`.
+   - The spreadsheet is at `/mnt/c/Users/sxc/Downloads/VCT Challengers NA 2024 Split 1 Fantasy.xlsx`. It's a downloaded file: copy it to the scratchpad and read it with `python -I` and openpyxl, from a venv.
+3. **mada = 755 and Reduxx = 601 must match exactly.** Report every other mismatch with its likely cause: a spreadsheet typo, or a different reading of a rule (§1.2). Don't tune the rules to hide a mismatch.
+
+**2.3 Standings UI** ‖ parallel-safe with 2.4. Covers:
+- §5.6
+- the home card's top-3 row
+- the header stack in rank order
+- points on the Teams chips
+- the pool's `PTS` column and default sort
+
+*Accept:* demo steps 8 and 9, with screenshots compared against the design README.
+
+**2.4 Matches tab** ‖ parallel-safe with 2.3. Covers §5.7: the schedule list, per-team pick avatars, the match detail panel (including live matches' finished maps), the commissioner's Sync button with its `syncRunning` spinner, the 60-second auto-refresh, the alerts and sub selects.
+
+*Accept:* demo steps 3 to 7 and 10, with screenshots.
+
+### Checkpoint 3: Running over time (tentative; re-planned after Checkpoint 2, don't start)
+
+- More scheduled jobs on the Checkpoint 2 ticker: a nightly refetch and a standings snapshot.
 - Discord webhooks: match recaps, daily standings and scrape-failure alerts. Ask the user for the webhook URL.
 - Deploy to Fly.io with a volume and nightly backups. **Ask before deploying.**
 
@@ -842,7 +1055,7 @@ This is here only so Checkpoint 1's schema doesn't block it.
 
 ## 7. Definition of done (this handoff)
 
-- The Checkpoint 1 demo script passes end to end.
+- The Checkpoint 2 demo script passes end to end.
 - Every package in §8 went through the full §2.2 loop and is merged into `main`.
 - The user has the checkpoint report, including screenshots and its "Notes for re-planning".
 
@@ -861,4 +1074,9 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] 1.6 Draft engine, server (commit aeb69fc)
 - [x] 1.7 Draft room, client (commit 7abe906)
 - [x] 1.8 Rosters and polish (commit bb28d5e)
-- [x] Checkpoint 1 gate, report and re-planning notes → **stop here** (demo steps 1–9 passed 2026-11-17)
+- [x] Checkpoint 1 gate, report and re-planning notes (demo steps 1–9 passed 2026-11-17)
+- [ ] 2.1 Match scrape and sync
+- [ ] 2.2 Scoring and standings API
+- [ ] 2.3 Standings UI
+- [ ] 2.4 Matches tab
+- [ ] Checkpoint 2 gate, report and re-planning notes → **stop here**

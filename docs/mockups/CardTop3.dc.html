@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tournament card with top 3</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#09090b}
+.pane{position:relative;background:#ffffff0a;-webkit-backdrop-filter:blur(20px) saturate(140%);backdrop-filter:blur(20px) saturate(140%);box-shadow:0 1px 0 #ffffff0d inset,0 12px 32px #00000059}
+.pane::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,#ffffff33,#ffffff1a 40%,#ffffff00 75%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.num{font-family:"Geist Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 400px; height: 560px; box-sizing: border-box; padding: 40px; font-family: Geist, Inter, system-ui, sans-serif; color: #f4f4f5; background: radial-gradient(30rem 24rem at 0% 0%, #ffb47a14, #ffb47a00 70%), radial-gradient(30rem 24rem at 100% 100%, #ff6a1a1c, #ff6a1a00 70%), #09090b;">
+  <article class="pane" style="border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="position: relative; height: 128px; display: flex; align-items: center; justify-content: center; background: radial-gradient(60% 90% at 50% 60%, #ff7a1a33, #ffffff00 75%), linear-gradient(180deg, #ffffff08, #ffffff00); border-bottom: 1px solid #ffffff12;">
+      <div style="width: 60px; height: 60px; border-radius: 16px; background: #ffffff14; border: 1px solid #ffffff2e; box-shadow: inset 0 1px 0 #ffffff33, 0 10px 30px #00000066; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 600;">C</div>
+      <span style="position: absolute; top: 12px; right: 12px; padding: 3px 10px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 600; background: #ff7a1a; color: #1c0d02; box-shadow: 0 4px 14px #ff7a1a55;">Live</span>
+    </div>
+    <div style="padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px;">
+      <a href="Standings.dc.html" style="font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em; color: #f4f4f5; text-decoration: none;">Challengers NA Stage 1</a>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+        <span style="padding: 3px 10px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 500; background: #ff7a1a29; color: #ff8f45; box-shadow: inset 0 0 0 1px #ff7a1a55;">Stage 1</span>
+        <span style="padding: 3px 10px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 500; background: #ffffff0d; color: #a1a1aa; box-shadow: inset 0 0 0 1px #ffffff14;">Playoffs</span>
+      </div>
+
+      <div title="Top 3" style="display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 10px; background: #ffffff08;">
+        <sc-for list="{{top}}" as="t" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px; height: 30px;">
+            <span class="num" style="{{t.rankStyle}}">{{t.rank}}</span>
+            <span style="{{t.avatarStyle}}">{{t.initial}}</span>
+            <span style="flex: 1; font-size: 13px; font-weight: 600;">{{t.name}}</span>
+            <span class="num" style="font-size: 13px; font-weight: 700;">{{t.pts}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span class="num" title="Teams" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; background: #ffffff0d; font-size: 12px; color: #a1a1aa;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>16
+        </span>
+        <span class="num" title="Managers" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; background: #ffffff0d; font-size: 12px; color: #a1a1aa;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>8/8
+        </span>
+        <span class="num" title="Matches played" style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>18/32
+        </span>
+      </div>
+      <div style="height: 4px; border-radius: 4px; background: #ffffff14; overflow: hidden;">
+        <div style="height: 100%; width: 56%; border-radius: 4px; background: #ff7a1a;"></div>
+      </div>
+    </div>
+  </article>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const top = [['James', '#cfbeff', 2525], ['Will', '#f5bf81', 2609], ['Jackey', '#95deae', 2315]]
+      .sort((a, b) => b[2] - a[2])
+      .map(([name, color, pts], i) => ({
+        name, initial: name[0], rank: i + 1, pts: pts.toLocaleString('en-US'),
+        rankStyle: 'width: 12px; text-align: center; font-size: 12px; font-weight: 700; color: ' + (i === 0 ? '#ff8f45' : '#a1a1aa') + ';',
+        avatarStyle: 'width: 22px; height: 22px; border-radius: 50%; background: #2a2a30; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1.5px ' + color + ', 0 0 0 3px #131315;',
+      }));
+    return { top };
+  }
+}
+</script>
+</body>
+</html>
