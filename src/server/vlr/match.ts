@@ -1,25 +1,16 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { MatchStatus } from "../../shared/entities.js";
-import { isFinishedMap } from "../../shared/scoring.js";
+import { isFinishedMap, type MapStatLine } from "../../shared/scoring.js";
 import { vlrIdFromHref } from "./event.js";
 import { absoluteVlrUrl } from "./fetch.js";
 
 type TeamSide = 1 | 2;
 
-export interface ParsedPlayerMapStats {
+export interface ParsedPlayerMapStats extends MapStatLine {
   vlrPlayerId: string;
   handle: string;
   side: TeamSide;
-  k: number;
-  d: number;
-  a: number;
-  fk: number;
-  fd: number;
-  mk3: number;
-  mk4: number;
-  aces: number;
-  clutches: number;
 }
 
 export interface ParsedMap {

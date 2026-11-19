@@ -3,8 +3,15 @@ import {
   type DraftControl,
   MANAGER_COLORS,
   MAX_PICK_SECONDS,
+  type ManagerColor,
+  type MatchStatus,
   MIN_PICK_SECONDS,
+  type Pickable,
+  type ScrapeStatus,
+  type Team,
+  type User,
 } from "./entities.js";
+import type { MapStatLine } from "./scoring.js";
 
 export interface HealthResponse {
   ok: boolean;
@@ -41,6 +48,12 @@ export const API_ROUTES = {
   tournamentReimport: (tournamentId: Id) =>
     `/api/tournaments/${tournamentId}/reimport`,
   tournamentSync: (tournamentId: Id) => `/api/tournaments/${tournamentId}/sync`,
+  tournamentStandings: (tournamentId: Id) =>
+    `/api/tournaments/${tournamentId}/standings`,
+  tournamentMatches: (tournamentId: Id) =>
+    `/api/tournaments/${tournamentId}/matches`,
+  match: (matchId: Id) => `/api/matches/${matchId}`,
+  matchSubs: (matchId: Id) => `/api/matches/${matchId}/subs`,
   stage: (stageId: Id) => `/api/stages/${stageId}`,
   stagePool: (stageId: Id) => `/api/stages/${stageId}/pool`,
   stagePoolEntry: (stageId: Id, pickableId: Id) =>
@@ -133,3 +146,104 @@ export const draftActionBodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("lock"), onBehalfOf }),
 ]);
 export type DraftActionBody = z.input<typeof draftActionBodySchema>;
+
+// A pick's points in one stage; null until its team has played a map there.
+export interface StandingsPick {
+  pickable: Pickable;
+  points: number | null;
+}
+
+export interface ManagerStageStanding {
+  stageId: number;
+  rank: number;
+  locked: boolean;
+  points: number | null;
+  picks: StandingsPick[];
+}
+
+// Ranks are 1-based within each scope. Points are null while the scope has none yet.
+export interface ManagerStanding {
+  user: User;
+  color: ManagerColor;
+  rank: number;
+  points: number | null;
+  stages: ManagerStageStanding[];
+}
+
+export interface StandingsResponse {
+  managers: ManagerStanding[];
+}
+
+export interface MatchHeader {
+  id: number;
+  stageId: number | null;
+  bestOf: number;
+  scheduledAt: string | null;
+  status: MatchStatus;
+  scrapeStatus: ScrapeStatus;
+}
+
+export type MatchTeamBase = Team & { score: number | null };
+
+export interface MatchTeamSummary extends MatchTeamBase {
+  ownerUserIds: number[];
+}
+
+export interface MatchSummary extends MatchHeader {
+  needsAttention: boolean;
+  mapCount: number;
+  team1: MatchTeamSummary | null;
+  team2: MatchTeamSummary | null;
+}
+
+export interface MatchesResponse {
+  syncRunning: boolean;
+  matches: MatchSummary[];
+}
+
+export interface MatchMap {
+  mapNo: number;
+  mapName: string;
+  team1Rounds: number;
+  team2Rounds: number;
+}
+
+export interface MatchPick {
+  pickable: Pickable;
+  ownerUserId: number | null;
+  playerStatTotals: MapStatLine | null;
+  points: number;
+}
+
+// One row per sub per map. missingPickableIds are the select's options; empty when there's nothing to choose.
+export interface MatchSub {
+  mapNo: number;
+  vlrPlayerId: string;
+  handle: string;
+  stats: MapStatLine;
+  replacesPickableId: number | null;
+  needsAssignment: boolean;
+  missingPickableIds: number[];
+}
+
+export interface MatchTeamDetail extends MatchTeamBase {
+  picks: MatchPick[];
+  subs: MatchSub[];
+}
+
+export interface MatchDetail extends MatchHeader {
+  maps: MatchMap[];
+  team1: MatchTeamDetail | null;
+  team2: MatchTeamDetail | null;
+}
+
+export const subAssignmentsBodySchema = z.object({
+  assignments: z.array(
+    z.object({
+      mapNo: z.number().int(),
+      subVlrPlayerId: z.string().min(1),
+      replacesPickableId: z.number().int().nullable(),
+    }),
+  ),
+});
+export type SubAssignmentsBody = z.input<typeof subAssignmentsBodySchema>;

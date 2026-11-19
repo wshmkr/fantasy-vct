@@ -1,7 +1,14 @@
-import type { Pickable } from "../shared/entities.js";
+import type {
+  Pickable,
+  PickableKind,
+  ScoredPickable,
+} from "../shared/entities.js";
 import type { pickables } from "./db/schema.js";
+import type { TournamentScores } from "./points.js";
 
-export function toPickable(row: typeof pickables.$inferSelect): Pickable {
+type PickableRow = typeof pickables.$inferSelect;
+
+export function toPickable(row: PickableRow): Pickable {
   return {
     id: row.id,
     kind: row.kind,
@@ -16,4 +23,18 @@ export function toPickable(row: typeof pickables.$inferSelect): Pickable {
     formKd: row.formKd,
     formRounds: row.formRounds,
   };
+}
+
+export function toScoredPickable(
+  row: PickableRow,
+  scores: TournamentScores,
+): ScoredPickable {
+  return { ...toPickable(row), points: scores.tournamentPoints(row.id) };
+}
+
+export function coachLast(
+  a: { kind: PickableKind },
+  b: { kind: PickableKind },
+): number {
+  return Number(a.kind === "coach") - Number(b.kind === "coach");
 }

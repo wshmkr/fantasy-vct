@@ -80,7 +80,7 @@ export interface Team {
 }
 
 export interface TeamWithPickables extends Team {
-  pickables: Pickable[];
+  pickables: ScoredPickable[];
 }
 
 export interface TopAgent {
@@ -101,6 +101,11 @@ export interface Pickable {
   formAcs: number | null;
   formKd: number | null;
   formRounds: number | null;
+}
+
+// Tournament points, Swiss phantom series included; null until the pick's team has played.
+export interface ScoredPickable extends Pickable {
+  points: number | null;
 }
 
 export interface TournamentMember {
@@ -164,7 +169,7 @@ export interface DraftAction {
   createdAt: string;
 }
 
-export interface PoolPickable extends Pickable {
+export interface PoolPickable extends ScoredPickable {
   ownerUserId: number | null;
 }
 

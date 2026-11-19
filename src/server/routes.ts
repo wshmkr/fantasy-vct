@@ -9,8 +9,10 @@ import { env } from "./env.js";
 import { draftRouter } from "./routes/draft.js";
 import { imagesRouter } from "./routes/images.js";
 import { importsRouter } from "./routes/imports.js";
+import { matchesRouter } from "./routes/matches.js";
 import { membersRouter } from "./routes/members.js";
 import { stagesRouter } from "./routes/stages.js";
+import { standingsRouter } from "./routes/standings.js";
 import { tournamentsRouter } from "./routes/tournaments.js";
 
 const startedAt = new Date();
@@ -47,5 +49,7 @@ apiRouter.use(membersRouter);
 apiRouter.use(tournamentsRouter);
 apiRouter.use(stagesRouter);
 apiRouter.use(draftRouter);
+apiRouter.use(matchesRouter);
+apiRouter.use(standingsRouter);
 apiRouter.use(importsRouter);
 apiRouter.use(imagesRouter);

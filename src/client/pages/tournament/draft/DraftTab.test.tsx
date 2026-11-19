@@ -57,6 +57,7 @@ function pickable(
     formAcs: 200,
     formKd: 1,
     formRounds: 100,
+    points: null,
     ownerUserId: null,
     ...overrides,
   };

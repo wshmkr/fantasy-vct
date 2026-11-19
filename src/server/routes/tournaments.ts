@@ -26,14 +26,14 @@ import {
   tournamentTeams,
 } from "../db/schema.js";
 import { HttpError } from "../error-handler.js";
-import { toPickable } from "../pickables.js";
+import { toScoredPickable } from "../pickables.js";
+import { scoreTournament } from "../points.js";
 import { toStage } from "../stages.js";
 import { syncTournament } from "../sync.js";
 import { tournamentMembersOf } from "../tournament-members.js";
+import { findTournament, type TournamentRow } from "../tournaments.js";
 import { importEvent, reimportTournament } from "../vlr/import.js";
 import { startImportJob } from "./imports.js";
-
-type TournamentRow = typeof tournaments.$inferSelect;
 
 function deriveTournamentStatus(
   stageStatuses: StageStatus[],
@@ -88,16 +88,6 @@ function toTournament(row: TournamentRow): Tournament {
     matchesPlayed: matchStatuses.filter((s) => s === "completed").length,
     matchesTotal: matchStatuses.length,
   };
-}
-
-function findTournament(tournamentId: unknown): TournamentRow {
-  const row = db
-    .select()
-    .from(tournaments)
-    .where(eq(tournaments.id, Number(tournamentId)))
-    .get();
-  if (!row) throw new HttpError(404, "Not found");
-  return row;
 }
 
 function requireNoDraftStarted(tournamentId: number) {
@@ -220,6 +210,7 @@ tournamentsRouter.get(
   requireUser,
   (req, res: Response<TeamWithPickables[]>) => {
     const { id } = findTournament(req.params.tournamentId);
+    const scores = scoreTournament(id);
     const teamRows = db
       .select({
         id: teams.id,
@@ -238,7 +229,7 @@ tournamentsRouter.get(
       .where(eq(tournamentTeams.tournamentId, id))
       .orderBy(desc(pickables.kind), asc(pickables.id))
       .all()
-      .map(({ pickable }) => toPickable(pickable));
+      .map(({ pickable }) => toScoredPickable(pickable, scores));
     res.json(
       teamRows.map((team) => ({
         ...team,

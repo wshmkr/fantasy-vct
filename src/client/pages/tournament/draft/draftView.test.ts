@@ -27,6 +27,7 @@ function pickable(
     formAcs: null,
     formKd: null,
     formRounds: null,
+    points: null,
     ownerUserId: null,
     ...overrides,
   };

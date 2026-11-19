@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import type { DraftSeat, DraftState, Team } from "../../shared/entities.js";
 import { phaseForTurn, roundForTurn, seatForTurn } from "../../shared/snake.js";
 import { db } from "../db/client.js";
@@ -9,24 +9,21 @@ import {
   stagePool,
   teams,
 } from "../db/schema.js";
-import { toPickable } from "../pickables.js";
+import { toScoredPickable } from "../pickables.js";
+import { scoreTournament, type TournamentScores } from "../points.js";
 import { findStage } from "../stages.js";
 import { tournamentMembersOf } from "../tournament-members.js";
 import { seatsMatchJoined, seatsOf } from "./seats.js";
 
 const RECENT_ACTION_COUNT = 10;
 
-function rosterPickableIdsByUser(stageId: number): Map<number, number[]> {
-  const entries = db
-    .select({
-      userId: rosterEntries.userId,
-      pickableId: rosterEntries.pickableId,
-    })
-    .from(rosterEntries)
-    .where(eq(rosterEntries.stageId, stageId))
-    // rowid is insertion order, and swaps update in place, so slots stay put.
-    .orderBy(sql`rowid`)
-    .all();
+function rosterPickableIdsByUser(
+  scores: TournamentScores,
+  stageId: number,
+): Map<number, number[]> {
+  const entries =
+    scores.stages.find(({ stage }) => stage.id === stageId)?.rosterEntries ??
+    [];
   const byUser = new Map<number, number[]>();
   for (const { userId, pickableId } of entries) {
     byUser.set(userId, [...(byUser.get(userId) ?? []), pickableId]);
@@ -38,7 +35,8 @@ export function readDraftState(stageId: number): DraftState {
   const stage = findStage(stageId);
   const members = tournamentMembersOf(stage.tournamentId);
   const membersById = new Map(members.map((m) => [m.user.id, m]));
-  const rosters = rosterPickableIdsByUser(stage.id);
+  const scores = scoreTournament(stage.tournamentId);
+  const rosters = rosterPickableIdsByUser(scores, stage.id);
 
   const seatRows = seatsOf(stage.id);
   const joined = members.map((member) => member.user.id);
@@ -115,7 +113,7 @@ export function readDraftState(stageId: number): DraftState {
     pickSeconds: stage.pickSeconds,
     seats,
     pool: poolRows.map(({ pickable, ownerUserId }) => ({
-      ...toPickable(pickable),
+      ...toScoredPickable(pickable, scores),
       ownerUserId,
     })),
     teams: [...poolTeams.values()].sort((a, b) => a.name.localeCompare(b.name)),

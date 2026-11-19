@@ -20,6 +20,7 @@ import {
   type TopAgent,
   USER_ROLES,
 } from "../../shared/entities.js";
+import type { ScoringConfig } from "../../shared/scoring.js";
 
 // Matches Date.prototype.toISOString(), so rows written by SQL defaults or Drizzle Studio sort and parse like app-written ones.
 const isoNow = sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`;
@@ -63,7 +64,7 @@ export const tournaments = sqliteTable("tournaments", {
     .notNull()
     .default(true),
   scoringJson: text("scoring_json", { mode: "json" })
-    .$type<Record<string, number>>()
+    .$type<Partial<ScoringConfig>>()
     .notNull()
     .default({}),
   webhookUrl: text("webhook_url"),

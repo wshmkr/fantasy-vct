@@ -45,6 +45,7 @@ const roster: PoolPickable[] = [21, 22, 23, 24, 25, 26].map((id) => ({
   formAcs: null,
   formKd: null,
   formRounds: null,
+  points: null,
   ownerUserId: me.id,
 }));
 
