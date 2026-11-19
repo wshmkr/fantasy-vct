@@ -2,17 +2,25 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import { API_ROUTES } from "@shared/api";
-import { MAX_MANAGERS, type Tournament } from "@shared/entities";
-import { Calendar, Shield, UserPlus } from "lucide-react";
+import {
+  displayNameOf,
+  MAX_MANAGERS,
+  type Tournament,
+  type TournamentLeader,
+} from "@shared/entities";
+import { Calendar, Shield, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useJoinTournament } from "../tournaments";
 import { useMe } from "../useMe";
 import ColorPickerPopover from "./ColorPickerPopover";
 import EventLogo from "./EventLogo";
+import ManagerAvatar from "./ManagerAvatar";
 import ManagerStack from "./ManagerStack";
 import Pane from "./Pane";
+import Points from "./Points";
 import ProgressBar from "./ProgressBar";
+import Rank from "./Rank";
 import StageChips from "./StageChips";
 import StatChip from "./StatChip";
 import StatusBadge from "./StatusBadge";
@@ -50,6 +58,49 @@ function CardHeader({ tournament }: { tournament: Tournament }) {
       <Box sx={{ position: "absolute", top: 12, right: 12 }}>
         <StatusBadge status={tournament.status} />
       </Box>
+    </Box>
+  );
+}
+
+function Leaders({ leaders }: { leaders: TournamentLeader[] }) {
+  return (
+    <Box
+      component="ol"
+      aria-label="Leaders"
+      sx={{
+        m: 0,
+        p: "6px 8px",
+        listStyle: "none",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2px",
+        borderRadius: "10px",
+        bgcolor: "#ffffff08",
+      }}
+    >
+      {leaders.map(({ user, color, rank, points }) => (
+        <Box
+          component="li"
+          key={user.id}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            height: 30,
+          }}
+        >
+          <Rank rank={rank} sx={{ width: 12, fontSize: 12 }} />
+          <ManagerAvatar user={user} size={22} ringColor={color} />
+          <Typography
+            variant="bodyStrong"
+            noWrap
+            sx={{ flex: 1, minWidth: 0, fontSize: 13 }}
+          >
+            {displayNameOf(user)}
+          </Typography>
+          <Points points={points} sx={{ fontWeight: 700 }} />
+        </Box>
+      ))}
     </Box>
   );
 }
@@ -96,6 +147,7 @@ export default function TournamentCard({
     tournament.joiningOpen &&
     tournament.members.length < MAX_MANAGERS &&
     !tournament.members.some((member) => member.user.id === me.data?.id);
+  const hasLeaders = tournament.leaders.length > 0;
 
   return (
     <Pane
@@ -136,6 +188,7 @@ export default function TournamentCard({
           {tournament.name}
         </Typography>
         <StageChips stages={tournament.stages} />
+        {hasLeaders && <Leaders leaders={tournament.leaders} />}
         <Box
           sx={{
             display: "flex",
@@ -147,8 +200,17 @@ export default function TournamentCard({
           <StatChip label="Teams" icon={<Shield size={13} aria-hidden />}>
             {tournament.teamCount}
           </StatChip>
-          <StatChip label="Managers">
-            <ManagerStack members={tournament.members} size={20} overlap={5} />
+          <StatChip
+            label="Managers"
+            icon={hasLeaders && <Users size={13} aria-hidden />}
+          >
+            {!hasLeaders && (
+              <ManagerStack
+                members={tournament.members}
+                size={20}
+                overlap={5}
+              />
+            )}
             {tournament.members.length}/{MAX_MANAGERS}
           </StatChip>
           <Box sx={{ ml: "auto" }}>

@@ -150,6 +150,7 @@ export type DraftActionBody = z.input<typeof draftActionBodySchema>;
 // A pick's points in one stage; null until its team has played a map there.
 export interface StandingsPick {
   pickable: Pickable;
+  teamLogoImageId: number | null;
   points: number | null;
 }
 
@@ -167,6 +168,8 @@ export interface ManagerStanding {
   color: ManagerColor;
   rank: number;
   points: number | null;
+  // Locked in the latest stage the manager has picks in.
+  locked: boolean;
   stages: ManagerStageStanding[];
 }
 

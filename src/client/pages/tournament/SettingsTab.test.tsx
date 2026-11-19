@@ -26,6 +26,7 @@ const tournament: Tournament = {
     },
   ],
   members: [],
+  leaders: [],
   teamCount: 1,
   matchesPlayed: 0,
   matchesTotal: 24,

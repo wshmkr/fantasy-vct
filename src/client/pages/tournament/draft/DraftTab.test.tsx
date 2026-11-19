@@ -34,6 +34,7 @@ const tournament: Tournament = {
     },
   ],
   members: [],
+  leaders: [],
   teamCount: 1,
   matchesPlayed: 0,
   matchesTotal: 24,
@@ -163,4 +164,28 @@ test("a full roster can lock out of turn in the swap phase", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Lock" }));
 
   await waitFor(() => expect(sent).toEqual({ action: "lock" }));
+});
+
+test("the pool sorts by PTS once points exist, and the header flips it", async () => {
+  renderDraft(
+    draftState({
+      pool: [
+        pickable(11, "zekken", { points: 120 }),
+        pickable(12, "johnqt", { points: -15 }),
+        pickable(13, "Ethan", { points: 310 }),
+      ],
+    }),
+    () => {},
+  );
+  const poolOrder = () =>
+    screen
+      .getAllByRole("option")
+      .map((option) => option.getAttribute("aria-label"));
+
+  await screen.findByRole("option", { name: "zekken" });
+  expect(poolOrder()).toEqual(["Ethan", "zekken", "johnqt"]);
+  expect(screen.getByText("−15")).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /PTS/ }));
+  expect(poolOrder()).toEqual(["johnqt", "zekken", "Ethan"]);
 });

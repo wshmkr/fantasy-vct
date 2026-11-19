@@ -1077,6 +1077,6 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] Checkpoint 1 gate, report and re-planning notes (demo steps 1–9 passed 2026-11-17)
 - [x] 2.1 Match scrape and sync (commit b05f5f2)
 - [x] 2.2 Scoring and standings API (commit f887544)
-- [ ] 2.3 Standings UI
+- [x] 2.3 Standings UI (commit 015dbad)
 - [ ] 2.4 Matches tab
 - [ ] Checkpoint 2 gate, report and re-planning notes → **stop here**

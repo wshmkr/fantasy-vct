@@ -18,13 +18,14 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import Pane from "../../../components/Pane";
 import { CoachBadge } from "../../../components/PlayerChip";
 import PlayerPhoto from "../../../components/PlayerPhoto";
+import Points from "../../../components/Points";
 import SegmentedControl, {
   type Segment,
 } from "../../../components/SegmentedControl";
 import TeamLogo from "../../../components/TeamLogo";
 import {
   availablePool,
-  DEFAULT_POOL_SORT,
+  defaultPoolSort,
   nextPoolSort,
   type PoolSort,
   type PoolSortKey,
@@ -33,7 +34,7 @@ import { shake } from "./motion";
 
 const POOL_GRID = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) 44px 40px 40px",
+  gridTemplateColumns: "minmax(0, 1fr) 48px 44px 40px 40px",
   gap: "8px",
   alignItems: "center",
   px: "8px",
@@ -46,6 +47,7 @@ const KIND_SEGMENTS: Segment<PickableKind>[] = [
 
 const COLUMNS: { key: PoolSortKey; label: string }[] = [
   { key: "handle", label: "PLAYER" },
+  { key: "points", label: "PTS" },
   { key: "formRating", label: "RTG" },
   { key: "formAcs", label: "ACS" },
   { key: "formKd", label: "K/D" },
@@ -279,6 +281,7 @@ function PoolRow({
           </Button>
         )}
       </Box>
+      <Points points={pickable.points} />
       <Typography variant="stat" sx={{ textAlign: "right", fontWeight: 600 }}>
         {formatStat(pickable.formRating, 2)}
       </Typography>
@@ -325,7 +328,7 @@ export default function DraftPool({
   const [selectedTeamIds, setSelectedTeamIds] = useState<ReadonlySet<number>>(
     new Set(),
   );
-  const [sort, setSort] = useState(DEFAULT_POOL_SORT);
+  const [sort, setSort] = useState(() => defaultPoolSort(pool));
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

@@ -19,6 +19,7 @@ function makeTournament(overrides: Partial<Tournament> = {}): Tournament {
     status: "live",
     stages: [],
     members: [{ user: otherManager, color: "manager-red" }],
+    leaders: [],
     teamCount: 16,
     matchesPlayed: 18,
     matchesTotal: 32,
@@ -77,5 +78,39 @@ describe("Tournaments", () => {
     expect(
       screen.queryByRole("button", { name: "Join" }),
     ).not.toBeInTheDocument();
+  });
+
+  test("once points exist the card shows the top 3 and a joined count", async () => {
+    const third = makeUser({ id: 3, displayName: "Will" });
+    stubApi({
+      "GET /api/me": () => ({ status: 200, body: me }),
+      "GET /api/tournaments": () => ({
+        status: 200,
+        body: [
+          makeTournament({
+            leaders: [
+              {
+                user: otherManager,
+                color: "manager-red",
+                rank: 1,
+                points: 2609,
+              },
+              { user: me, color: "manager-blue", rank: 2, points: 2525 },
+              { user: third, color: "manager-rose", rank: 3, points: -40 },
+            ],
+          }),
+        ],
+      }),
+    });
+    renderApp("/");
+
+    const topThree = await screen.findByRole("list", { name: "Leaders" });
+    expect(
+      within(topThree)
+        .getAllByRole("listitem")
+        .map((row) => row.textContent),
+    ).toEqual(["1AAmy2,609", "2SStephen2,525", "3WWill−40"]);
+    const card = screen.getByRole("article");
+    expect(within(card).getByLabelText("Managers")).toHaveTextContent(/^1\/8$/);
   });
 });

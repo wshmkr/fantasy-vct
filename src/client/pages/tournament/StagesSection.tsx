@@ -214,7 +214,7 @@ function PoolTeamCard({
             key={entry.id}
             pickable={entry}
             teamLogoImageId={team.logoImageId}
-            dense
+            size="dense"
             struckOut={entry.removed}
             {...(editable && {
               onClick: () => onToggle(entry),

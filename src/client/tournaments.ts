@@ -1,4 +1,8 @@
-import { API_ROUTES, type ManagerColorBody } from "@shared/api";
+import {
+  API_ROUTES,
+  type ManagerColorBody,
+  type StandingsResponse,
+} from "@shared/api";
 import type {
   ImportJob,
   ManagerColor,
@@ -11,7 +15,7 @@ import { useCallback, useEffect } from "react";
 import { apiClient } from "./apiClient";
 
 export const TOURNAMENTS_QUERY_KEY = ["tournaments"];
-const tournamentQueryKey = (tournamentId: number) => [
+export const tournamentQueryKey = (tournamentId: number) => [
   ...TOURNAMENTS_QUERY_KEY,
   tournamentId,
 ];
@@ -41,6 +45,16 @@ export function useTournamentTeams(tournamentId: number) {
     queryFn: () =>
       apiClient.get<TeamWithPickables[]>(
         API_ROUTES.tournamentTeams(tournamentId),
+      ),
+  });
+}
+
+export function useStandings(tournamentId: number) {
+  return useQuery({
+    queryKey: [...tournamentQueryKey(tournamentId), "standings"],
+    queryFn: () =>
+      apiClient.get<StandingsResponse>(
+        API_ROUTES.tournamentStandings(tournamentId),
       ),
   });
 }

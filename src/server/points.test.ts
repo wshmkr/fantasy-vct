@@ -7,7 +7,11 @@ import type {
   MatchTeamDetail,
   StandingsResponse,
 } from "../shared/api.js";
-import type { DraftState, TeamWithPickables } from "../shared/entities.js";
+import type {
+  DraftState,
+  TeamWithPickables,
+  Tournament,
+} from "../shared/entities.js";
 import { db } from "./db/client.js";
 import {
   images,
@@ -314,6 +318,26 @@ describe("standings", () => {
       ),
     );
     expect(runnerUp?.points).toBe(memberFirstStage?.points);
+  });
+
+  test("the tournament carries the leaders and lists members in rank order", async () => {
+    const { managers } = await standings();
+    const tournament: Tournament = (
+      await member.get(`/api/tournaments/${tournamentId}`).expect(200)
+    ).body;
+
+    expect(tournament.leaders).toEqual(
+      managers.slice(0, 3).map(({ user, color, rank, points }) => ({
+        user,
+        color,
+        rank,
+        points,
+      })),
+    );
+    expect(tournament.leaders.length).toBeGreaterThan(0);
+    expect(tournament.members.map(({ user }) => user.id)).toEqual(
+      managers.map(({ user }) => user.id),
+    );
   });
 
   test("a stage without points has null totals and keeps the draft order", async () => {

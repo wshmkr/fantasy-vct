@@ -113,6 +113,11 @@ export interface TournamentMember {
   color: ManagerColor;
 }
 
+export interface TournamentLeader extends TournamentMember {
+  rank: number;
+  points: number;
+}
+
 export interface Stage {
   id: number;
   tournamentId: number;
@@ -141,6 +146,8 @@ export interface Tournament {
   status: TournamentStatus;
   stages: Stage[];
   members: TournamentMember[];
+  // Empty until any points exist.
+  leaders: TournamentLeader[];
   teamCount: number;
   matchesPlayed: number;
   matchesTotal: number;

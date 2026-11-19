@@ -3,6 +3,7 @@ import type { DraftControl, DraftState } from "@shared/entities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { apiClient } from "./apiClient";
+import { tournamentQueryKey } from "./tournaments";
 
 const draftQueryKey = (stageId: number) => ["draft", stageId];
 
@@ -13,11 +14,20 @@ export function useDraft(stageId: number) {
   });
 }
 
-export function useDraftStream(stageId: number) {
+// Draft changes move standings, pools and stage status, so the whole tournament refreshes.
+export function useDraftStream(
+  tournamentId: number,
+  stageId: number | undefined,
+) {
   const queryClient = useQueryClient();
   useEffect(() => {
-    const refetch = () =>
+    if (stageId === undefined) return;
+    const refetch = () => {
       queryClient.invalidateQueries({ queryKey: draftQueryKey(stageId) });
+      queryClient.invalidateQueries({
+        queryKey: tournamentQueryKey(tournamentId),
+      });
+    };
     const stream = new EventSource(API_ROUTES.draftStream(stageId));
     stream.addEventListener("changed", refetch);
     let hasOpened = false;
@@ -27,7 +37,7 @@ export function useDraftStream(stageId: number) {
       hasOpened = true;
     });
     return () => stream.close();
-  }, [stageId, queryClient]);
+  }, [tournamentId, stageId, queryClient]);
 }
 
 export type DraftCommand =
