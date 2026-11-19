@@ -8,7 +8,13 @@ const STATUS_LABELS: Record<TournamentStatus, string> = {
   ended: "Ended",
 };
 
-export default function StatusBadge({ status }: { status: TournamentStatus }) {
+export default function StatusBadge({
+  status,
+  compact = false,
+}: {
+  status: TournamentStatus;
+  compact?: boolean;
+}) {
   const isActive = status === "live" || status === "drafting";
   return (
     <Chip
@@ -26,6 +32,11 @@ export default function StatusBadge({ status }: { status: TournamentStatus }) {
           color: "var(--on-accent)",
           boxShadow:
             "0 4px 14px color-mix(in srgb, var(--accent) 33%, transparent)",
+        },
+        compact && {
+          height: 18,
+          fontSize: 11,
+          "& .MuiChip-label": { px: "7px" },
         },
       ]}
     />

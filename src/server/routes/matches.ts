@@ -151,9 +151,10 @@ function picksOf(
         {
           pickable: toPickable(pickable),
           ownerUserId: ownerOf(stage, pickable.id),
-          playerStatTotals: isCoach
-            ? null
-            : ownRows.reduce(addStatLines, ZERO_STAT_LINE),
+          playerStatTotals:
+            isCoach || ownRows.length === 0
+              ? null
+              : ownRows.reduce(addStatLines, ZERO_STAT_LINE),
           points: scored.pointsByPickable.get(pickable.id) ?? 0,
         },
       ];

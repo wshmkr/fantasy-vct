@@ -1,12 +1,14 @@
 import Box from "@mui/material/Box";
-import { LayoutGrid, Settings2, Shield, Users } from "lucide-react";
+import { Calendar, LayoutGrid, Settings2, Shield, Users } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import SegmentedControl, {
   type Segment,
 } from "../../components/SegmentedControl";
+import { useLiveRefetchInterval } from "../../matches";
 import { useTournament } from "../../tournaments";
 import { useMe } from "../../useMe";
 import DraftTab from "./draft/DraftTab";
+import MatchesTab from "./matches/MatchesTab";
 import RostersTab from "./RostersTab";
 import SettingsTab from "./SettingsTab";
 import TeamsTab from "./TeamsTab";
@@ -14,6 +16,7 @@ import TournamentHeader from "./TournamentHeader";
 
 const MEMBER_TABS = [
   { key: "rosters", label: "Rosters", Icon: Users },
+  { key: "matches", label: "Matches", Icon: Calendar },
   { key: "draft", label: "Draft", Icon: LayoutGrid },
   { key: "teams", label: "Teams", Icon: Shield },
 ];
@@ -27,7 +30,10 @@ export default function Tournament() {
   const tournamentId = Number(params.tournamentId);
   const tab = params.tab ?? "rosters";
   const me = useMe();
-  const tournament = useTournament(tournamentId);
+  const tournament = useTournament(
+    tournamentId,
+    useLiveRefetchInterval(tournamentId),
+  );
   const tabs =
     me.data?.role === "commissioner" ? COMMISSIONER_TABS : MEMBER_TABS;
   const segments: Segment<string>[] = tabs.map((definition) => ({
@@ -51,6 +57,7 @@ export default function Tournament() {
         />
       </Box>
       {tab === "rosters" && <RostersTab tournament={tournament.data} />}
+      {tab === "matches" && <MatchesTab tournament={tournament.data} />}
       {tab === "draft" && <DraftTab tournament={tournament.data} />}
       {tab === "teams" && <TeamsTab tournamentId={tournamentId} />}
       {tab === "settings" && <SettingsTab tournament={tournament.data} />}

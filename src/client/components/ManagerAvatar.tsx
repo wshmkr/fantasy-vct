@@ -5,6 +5,7 @@ interface ManagerAvatarProps {
   user: Pick<User, "discordUsername" | "displayName" | "avatarUrl">;
   size: number;
   ringColor?: ManagerColor;
+  tightRing?: boolean;
   dimmed?: boolean;
 }
 
@@ -12,6 +13,7 @@ export default function ManagerAvatar({
   user,
   size,
   ringColor,
+  tightRing = false,
   dimmed = false,
 }: ManagerAvatarProps) {
   const name = displayNameOf(user);
@@ -32,6 +34,8 @@ export default function ManagerAvatar({
         Boolean(ringColor) && {
           boxShadow: `0 0 0 2px var(--bg), 0 0 0 4px var(--${ringColor})`,
         },
+        Boolean(ringColor) &&
+          tightRing && { boxShadow: `0 0 0 1.5px var(--${ringColor})` },
         dimmed && {
           bgcolor: "transparent",
           color: "var(--ink-muted)",

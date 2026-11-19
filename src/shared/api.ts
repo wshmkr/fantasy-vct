@@ -211,6 +211,7 @@ export interface MatchMap {
 export interface MatchPick {
   pickable: Pickable;
   ownerUserId: number | null;
+  // Null for coaches and for players who sat out every map.
   playerStatTotals: MapStatLine | null;
   points: number;
 }

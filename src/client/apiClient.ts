@@ -28,8 +28,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiClientError(res.status, message);
   }
 
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const body = await res.text();
+  return (body ? JSON.parse(body) : undefined) as T;
 }
 
 export const apiClient = {
@@ -41,5 +41,7 @@ export const apiClient = {
     }),
   patch: <T = void>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  put: <T = void>(path: string, body: unknown) =>
+    request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T = void>(path: string) => request<T>(path, { method: "DELETE" }),
 };
