@@ -3,10 +3,13 @@ import { createApp } from "./app.js";
 import { upsertCommissioner } from "./auth/access.js";
 import { db } from "./db/client.js";
 import { env } from "./env.js";
+import { startSyncTicker } from "./sync.js";
 
 if (env.COMMISSIONER_DISCORD_USERNAME) {
   upsertCommissioner(env.COMMISSIONER_DISCORD_USERNAME);
 }
+
+if (env.SCHEDULER === "on") startSyncTicker();
 
 const app = createApp();
 

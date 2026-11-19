@@ -40,6 +40,7 @@ export const API_ROUTES = {
     `/api/tournaments/${tournamentId}/members/${userId}`,
   tournamentReimport: (tournamentId: Id) =>
     `/api/tournaments/${tournamentId}/reimport`,
+  tournamentSync: (tournamentId: Id) => `/api/tournaments/${tournamentId}/sync`,
   stage: (stageId: Id) => `/api/stages/${stageId}`,
   stagePool: (stageId: Id) => `/api/stages/${stageId}/pool`,
   stagePoolEntry: (stageId: Id, pickableId: Id) =>

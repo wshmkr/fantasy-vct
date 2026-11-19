@@ -481,7 +481,7 @@ More rules:
 **Sub pairing** is computed on read, together with points. Only the commissioner's choices are stored.
 - Work per map and per team:
   - **missing:** that team's player pickables that are **rostered in the match's stage** (by any manager) and have no stats row on that map. Event-registered players nobody rostered don't count, so a registered sub sitting on the bench never causes ambiguity.
-  - **subs:** the players in that team's map rows who aren't pickables, or who are pickables but not rostered in that stage
+  - **subs:** the players in that team's map rows who aren't among that team's player pickables in the stage's pool. An unrostered pool player who plays scores for nobody and is never a sub, so a partly rostered team still auto-pairs its one real sub.
 - Pair them like this:
   - **0 missing:** the subs replace nobody.
   - **missing but no subs:** the missing players score 0 for that map.

@@ -28,6 +28,7 @@ import {
 import { HttpError } from "../error-handler.js";
 import { toPickable } from "../pickables.js";
 import { toStage } from "../stages.js";
+import { syncTournament } from "../sync.js";
 import { tournamentMembersOf } from "../tournament-members.js";
 import { importEvent, reimportTournament } from "../vlr/import.js";
 import { startImportJob } from "./imports.js";
@@ -201,6 +202,16 @@ tournamentsRouter.post(
         return id;
       }),
     );
+  },
+);
+
+tournamentsRouter.post(
+  "/tournaments/:tournamentId/sync",
+  requireCommissioner,
+  (req, res) => {
+    const { id } = findTournament(req.params.tournamentId);
+    syncTournament(id).catch((error: unknown) => console.error(error));
+    res.status(202).end();
   },
 );
 

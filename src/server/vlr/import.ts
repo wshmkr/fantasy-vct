@@ -1,4 +1,5 @@
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { ImportProgress, TopAgent } from "../../shared/entities.js";
 import { db as appDb, type Db } from "../db/client.js";
 import {
@@ -27,6 +28,7 @@ import { DEFAULT_PLAYER_PICTURE_URL, storeImage } from "./images.js";
 import {
   ALL_STAGES_KEY,
   type ParsedMatch,
+  type ParsedSchedule,
   type ParsedStage,
   parseMatchesPage,
 } from "./matches.js";
@@ -247,10 +249,41 @@ function saveEvent(
     ]);
   }
 
+  saveScheduleAndStages(tx, tournamentId, event, teamIdByName);
+  seedSetupPools(tx, tournamentId, rosterIdsByTeamId);
+  return tournamentId;
+}
+
+// Once a match page is scraped, its best-of and teams are VLR's real ones, not the list's guesses.
+const unlessScraped = (column: AnySQLiteColumn) =>
+  sql`case when ${matches.scrapedAt} is null then excluded.${sql.identifier(column.name)} else ${column} end`;
+
+// The list can lag the match page, so it never overrides a result the scrape already confirmed.
+const unlessScrapedOk = (column: AnySQLiteColumn) =>
+  sql`case when ${matches.scrapeStatus} = 'ok' then ${column} else excluded.${sql.identifier(column.name)} end`;
+
+// Import and sync both go through here, so stage keys are snapshotted before any of their matches are stored.
+export function saveScheduleAndStages(
+  tx: Transaction,
+  tournamentId: number,
+  schedule: ParsedSchedule,
+  teamIdByName: Map<string, number>,
+) {
+  const stageKeysSeenBefore = stageKeysOfStoredMatches(tx, tournamentId);
+  saveSchedule(tx, tournamentId, schedule.matches, teamIdByName);
+  addNewStages(tx, tournamentId, schedule.stages, stageKeysSeenBefore);
+  detectSwissStages(tx, tournamentId, schedule.stages);
+}
+
+function saveSchedule(
+  tx: Transaction,
+  tournamentId: number,
+  scheduledMatches: ParsedMatch[],
+  teamIdByName: Map<string, number>,
+) {
   const teamIdOf = (name: string | null) =>
     name === null ? null : (teamIdByName.get(name) ?? null);
-  const stageKeysSeenBefore = stageKeysOfStoredMatches(tx, tournamentId);
-  for (const match of event.matches) {
+  for (const match of scheduledMatches) {
     const values = {
       tournamentId,
       stageKey: match.stageKey,
@@ -264,13 +297,58 @@ function saveEvent(
     };
     tx.insert(matches)
       .values({ vlrId: match.vlrId, ...values })
-      .onConflictDoUpdate({ target: matches.vlrId, set: values })
+      .onConflictDoUpdate({
+        target: matches.vlrId,
+        set: {
+          ...values,
+          team1Id: unlessScraped(matches.team1Id),
+          team2Id: unlessScraped(matches.team2Id),
+          bestOf: unlessScraped(matches.bestOf),
+          status: unlessScrapedOk(matches.status),
+          score1: unlessScrapedOk(matches.score1),
+          score2: unlessScrapedOk(matches.score2),
+        },
+      })
       .run();
   }
+}
 
-  addNewStages(tx, tournamentId, event.stages, stageKeysSeenBefore);
-  seedSetupPools(tx, tournamentId, rosterIdsByTeamId);
-  return tournamentId;
+// Skips stages detected before (swiss_wins set), so a Drizzle Studio fix sticks.
+export function detectSwissStages(
+  tx: Transaction,
+  tournamentId: number,
+  vlrStages: ParsedStage[],
+) {
+  const undetectedStages = tx
+    .select({ id: stages.id, keys: stages.vlrStageKeysJson })
+    .from(stages)
+    .where(and(eq(stages.tournamentId, tournamentId), isNull(stages.swissWins)))
+    .all();
+  for (const vlrStage of vlrStages) {
+    const stage = undetectedStages.find((candidate) =>
+      candidate.keys.includes(vlrStage.key),
+    );
+    if (!stage || !/swiss/i.test(vlrStage.name)) continue;
+    const teamCount = new Set(
+      tx
+        .select({ team1Id: matches.team1Id, team2Id: matches.team2Id })
+        .from(matches)
+        .where(
+          and(
+            eq(matches.tournamentId, tournamentId),
+            eq(matches.stageKey, vlrStage.key),
+          ),
+        )
+        .all()
+        .flatMap((match) => [match.team1Id, match.team2Id])
+        .filter((teamId) => teamId !== null),
+    ).size;
+    if (teamCount < 2) continue;
+    tx.update(stages)
+      .set({ format: "swiss", swissWins: Math.round(Math.log2(teamCount)) - 1 })
+      .where(eq(stages.id, stage.id))
+      .run();
+  }
 }
 
 function savePerson(

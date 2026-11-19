@@ -13,6 +13,8 @@ import {
   MANAGER_COLORS,
   MATCH_STATUSES,
   PICKABLE_KINDS,
+  SCRAPE_STATUSES,
+  STAGE_FORMATS,
   STAGE_SOURCES,
   STAGE_STATUSES,
   type TopAgent,
@@ -149,6 +151,8 @@ export const stages = sqliteTable("stages", {
   currentTurnNo: integer("current_turn_no").notNull().default(0),
   turnDeadline: text("turn_deadline"),
   createdAt: createdAt("created_at"),
+  format: text("format", { enum: STAGE_FORMATS }).notNull().default("standard"),
+  swissWins: integer("swiss_wins"),
 });
 
 export const stageManagers = sqliteTable(
@@ -229,4 +233,72 @@ export const matches = sqliteTable("matches", {
   status: text("status", { enum: MATCH_STATUSES }).notNull(),
   score1: integer("score1"),
   score2: integer("score2"),
+  scrapeStatus: text("scrape_status", { enum: SCRAPE_STATUSES })
+    .notNull()
+    .default("pending"),
+  scrapeError: text("scrape_error"),
+  scrapedAt: text("scraped_at"),
+  checkedAt: text("checked_at"),
 });
+
+export const matchMaps = sqliteTable(
+  "match_maps",
+  {
+    matchId: integer("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    mapNo: integer("map_no").notNull(),
+    mapName: text("map_name").notNull(),
+    team1Rounds: integer("team1_rounds").notNull(),
+    team2Rounds: integer("team2_rounds").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.matchId, table.mapNo] })],
+);
+
+export const playerMapStats = sqliteTable(
+  "player_map_stats",
+  {
+    matchId: integer("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    mapNo: integer("map_no").notNull(),
+    vlrPlayerId: text("vlr_player_id").notNull(),
+    handle: text("handle").notNull(),
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teams.id),
+    k: integer("k").notNull(),
+    d: integer("d").notNull(),
+    a: integer("a").notNull(),
+    fk: integer("fk").notNull(),
+    fd: integer("fd").notNull(),
+    mk3: integer("mk3").notNull(),
+    mk4: integer("mk4").notNull(),
+    aces: integer("aces").notNull(),
+    clutches: integer("clutches").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.matchId, table.mapNo, table.vlrPlayerId],
+    }),
+  ],
+);
+
+export const subAssignments = sqliteTable(
+  "sub_assignments",
+  {
+    matchId: integer("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    mapNo: integer("map_no").notNull(),
+    subVlrPlayerId: text("sub_vlr_player_id").notNull(),
+    replacesPickableId: integer("replaces_pickable_id").references(
+      () => pickables.id,
+    ),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.matchId, table.mapNo, table.subVlrPlayerId],
+    }),
+  ],
+);

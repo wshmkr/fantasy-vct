@@ -43,8 +43,14 @@ export function isDraftRunning(status: StageStatus): boolean {
 export const STAGE_SOURCES = ["vlr", "manual"] as const;
 export type StageSource = (typeof STAGE_SOURCES)[number];
 
+export const STAGE_FORMATS = ["standard", "swiss"] as const;
+export type StageFormat = (typeof STAGE_FORMATS)[number];
+
 export const MATCH_STATUSES = ["upcoming", "live", "completed"] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
+
+export const SCRAPE_STATUSES = ["pending", "ok", "failed"] as const;
+export type ScrapeStatus = (typeof SCRAPE_STATUSES)[number];
 
 export const DRAFT_ACTION_KINDS = ["pick", "swap", "lock"] as const;
 export type DraftActionKind = (typeof DRAFT_ACTION_KINDS)[number];

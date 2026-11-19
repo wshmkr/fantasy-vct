@@ -32,6 +32,7 @@ const envSchema = z
     DISCORD_CLIENT_ID: optionalString,
     DISCORD_CLIENT_SECRET: optionalString,
     DEV_LOGIN: z.stringbool().default(false),
+    SCHEDULER: z.enum(["on", "off"]).default("on"),
   })
   .refine((env) => env.DEV_LOGIN || env.COMMISSIONER_DISCORD_USERNAME, {
     message: "Required unless DEV_LOGIN",

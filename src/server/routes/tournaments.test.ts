@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, test, vi } from "vitest";
 import { MANAGER_COLORS, type Tournament } from "../../shared/entities.js";
 import { db } from "../db/client.js";
 import { images, matches, stages } from "../db/schema.js";
+import { isSyncRunning } from "../sync.js";
 import { importAndWait, insertUser, loginAs } from "../test-utils.js";
 import { FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
 
@@ -98,6 +99,21 @@ describe("tournaments API", () => {
     expect(job.tournamentId).toBe(tournamentId);
   });
 
+  test("sync returns at once and scrapes the started matches in the background", async () => {
+    await commissioner
+      .post(`/api/tournaments/${tournamentId}/sync`)
+      .expect(202);
+    await vi.waitFor(() => {
+      expect(isSyncRunning()).toBe(false);
+      const live = db
+        .select()
+        .from(matches)
+        .where(eq(matches.status, "live"))
+        .get();
+      expect(live?.checkedAt).not.toBeNull();
+    });
+  });
+
   test("lists teams with their players and coach", async () => {
     const { body } = await member
       .get(`/api/tournaments/${tournamentId}/teams`)
@@ -129,6 +145,7 @@ describe("tournaments API", () => {
       .expect(403);
     await member.patch(base).send({ joiningOpen: false }).expect(403);
     await member.post(`${base}/reimport`).expect(403);
+    await member.post(`${base}/sync`).expect(403);
     await member.delete(`${base}/members/1`).expect(403);
   });
 
