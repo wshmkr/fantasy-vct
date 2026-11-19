@@ -2,7 +2,7 @@ import type { PoolPickable } from "@shared/entities";
 import { describe, expect, test } from "vitest";
 import {
   availablePool,
-  DEFAULT_POOL_SORT,
+  defaultPoolSort,
   formatClock,
   nextPoolSort,
   type PoolFilter,
@@ -52,23 +52,24 @@ const pool = [
   pickable(6, "Asuna", { teamId: 2, formRating: null }),
 ];
 const handles = (list: PoolPickable[]) => list.map((p) => p.handle);
+const RATING_SORT = defaultPoolSort(pool);
 
 describe("availablePool", () => {
   test("hides owned pickables and other kinds, sorts by rating with nulls last", () => {
     expect(
-      handles(availablePool(pool, teamNames, allPlayers, DEFAULT_POOL_SORT)),
+      handles(availablePool(pool, teamNames, allPlayers, RATING_SORT)),
     ).toEqual(["Ethan", "zekken", "Asuna", "bang"]);
   });
 
   test("keeps nulls last when ascending", () => {
-    const ascending = nextPoolSort(DEFAULT_POOL_SORT, "formRating");
+    const ascending = nextPoolSort(RATING_SORT, "formRating");
     expect(
       handles(availablePool(pool, teamNames, allPlayers, ascending)),
     ).toEqual(["zekken", "Ethan", "Asuna", "bang"]);
   });
 
   test("sorts by name A to Z, ignoring case", () => {
-    const byName = nextPoolSort(DEFAULT_POOL_SORT, "handle");
+    const byName = nextPoolSort(RATING_SORT, "handle");
     expect(byName.descending).toBe(false);
     expect(handles(availablePool(pool, teamNames, allPlayers, byName))).toEqual(
       ["Asuna", "bang", "Ethan", "zekken"],
@@ -82,7 +83,7 @@ describe("availablePool", () => {
           pool,
           teamNames,
           { ...allPlayers, search: text },
-          DEFAULT_POOL_SORT,
+          RATING_SORT,
         ),
       );
     expect(search("ZEK")).toEqual(["zekken"]);
@@ -93,10 +94,34 @@ describe("availablePool", () => {
           pool,
           teamNames,
           { ...allPlayers, teamIds: new Set([1]) },
-          DEFAULT_POOL_SORT,
+          RATING_SORT,
         ),
       ),
     ).toEqual(["zekken", "bang"]);
+  });
+
+  test("defaults to points once any exist, with nulls last", () => {
+    const scoredPool = [
+      pickable(1, "zekken", { points: 120 }),
+      pickable(2, "bang", { points: -15 }),
+      pickable(3, "Ethan", { teamId: 2, formRating: 1.3 }),
+      pickable(4, "Asuna", { teamId: 2, points: 310 }),
+    ];
+    const sort = defaultPoolSort(scoredPool);
+    expect(sort).toEqual({ key: "points", descending: true });
+    expect(
+      handles(availablePool(scoredPool, teamNames, allPlayers, sort)),
+    ).toEqual(["Asuna", "zekken", "bang", "Ethan"]);
+    expect(
+      handles(
+        availablePool(
+          scoredPool,
+          teamNames,
+          allPlayers,
+          nextPoolSort(sort, "points"),
+        ),
+      ),
+    ).toEqual(["bang", "zekken", "Asuna", "Ethan"]);
   });
 
   test("shows coaches for the coach kind", () => {
@@ -106,7 +131,7 @@ describe("availablePool", () => {
           pool,
           teamNames,
           { ...allPlayers, kind: "coach" },
-          DEFAULT_POOL_SORT,
+          RATING_SORT,
         ),
       ),
     ).toEqual(["kaplan"]);

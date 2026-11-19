@@ -49,6 +49,8 @@ function TeamCard({ team }: { team: TeamWithPickables }) {
             key={pickable.id}
             pickable={pickable}
             teamLogoImageId={team.logoImageId}
+            points={pickable.points}
+            size="compact"
           />
         ))}
       </Box>

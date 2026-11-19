@@ -257,7 +257,8 @@ export function rankStandings<Standing extends RankableStanding>(
   const hasPoints = standings.some((standing) => standing.points !== null);
   return [...standings].sort((a, b) =>
     hasPoints
-      ? (b.points ?? 0) - (a.points ?? 0) ||
+      ? Number(a.points === null) - Number(b.points === null) ||
+        (b.points ?? 0) - (a.points ?? 0) ||
         (b.bestPickPoints ?? 0) - (a.bestPickPoints ?? 0) ||
         a.displayName.localeCompare(b.displayName)
       : (a.draftSeat ?? Number.MAX_SAFE_INTEGER) -

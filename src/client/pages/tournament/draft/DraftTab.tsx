@@ -51,6 +51,7 @@ export default function DraftTab({ tournament }: { tournament: Tournament }) {
   return (
     <DraftRoom
       key={stageId}
+      tournamentId={tournament.id}
       me={me.data}
       stages={tournament.stages}
       stageId={stageId}
@@ -81,18 +82,20 @@ function OnTheClockTimer({
 }
 
 function DraftRoom({
+  tournamentId,
   me,
   stages,
   stageId,
   onStageChange,
 }: {
+  tournamentId: number;
   me: User;
   stages: Stage[];
   stageId: number;
   onStageChange: (stageId: number) => void;
 }) {
   const draftQuery = useDraft(stageId);
-  useDraftStream(stageId);
+  useDraftStream(tournamentId, stageId);
   const invalidateTournaments = useInvalidateTournaments();
   const [actingAsUserId, setActingAsUserId] = useState<number | null>(null);
   const [swapOutId, setSwapOutId] = useState<number | null>(null);

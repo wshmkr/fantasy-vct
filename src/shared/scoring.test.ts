@@ -407,6 +407,16 @@ describe("rankStandings", () => {
     draftSeat: number | null = null,
   ) => ({ displayName, points, bestPickPoints, draftSeat });
 
+  test("managers without points rank below negative totals", () => {
+    expect(
+      rankStandings([
+        standing("Abe", null, null, 0),
+        standing("Bea", -20, -20, 1),
+        standing("Cara", 50, 50, 2),
+      ]).map(({ displayName }) => displayName),
+    ).toEqual(["Cara", "Bea", "Abe"]);
+  });
+
   test("ranks by points, then best single pick, then name", () => {
     expect(
       rankStandings([

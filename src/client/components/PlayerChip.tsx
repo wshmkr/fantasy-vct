@@ -4,11 +4,13 @@ import Typography from "@mui/material/Typography";
 import type { Pickable } from "@shared/entities";
 import { GraduationCap } from "lucide-react";
 import PlayerPhoto from "./PlayerPhoto";
+import Points from "./Points";
 
 interface PlayerChipProps {
   pickable: Pick<Pickable, "kind" | "handle" | "vlrUrl" | "photoImageId">;
   teamLogoImageId: number | null;
-  dense?: boolean;
+  points?: number | null;
+  size?: "default" | "dense" | "compact";
   struckOut?: boolean;
   onClick?: () => void;
   "aria-label"?: string;
@@ -48,14 +50,43 @@ function chipElement(vlrUrl: string | null, onClick: (() => void) | undefined) {
   return { component: "div" };
 }
 
+const CHIP_SIZES = {
+  default: {
+    gap: "9px",
+    padding: "6px",
+    radius: "9px",
+    photo: 30,
+    handle: 14,
+    points: 13,
+  },
+  dense: {
+    gap: "7px",
+    padding: "2px 4px",
+    radius: "var(--radius-sm)",
+    photo: 26,
+    handle: 13,
+    points: 13,
+  },
+  compact: {
+    gap: "6px",
+    padding: "6px 4px",
+    radius: "9px",
+    photo: 30,
+    handle: 13,
+    points: 12,
+  },
+} as const;
+
 export default function PlayerChip({
   pickable,
   teamLogoImageId,
-  dense = false,
+  points,
+  size = "default",
   struckOut = false,
   onClick,
   ...ariaProps
 }: PlayerChipProps) {
+  const chipSize = CHIP_SIZES[size];
   return (
     <Box
       {...chipElement(pickable.vlrUrl, onClick)}
@@ -64,11 +95,11 @@ export default function PlayerChip({
         {
           display: "flex",
           alignItems: "center",
-          gap: dense ? "7px" : "9px",
-          p: dense ? "2px 4px" : "6px",
+          gap: chipSize.gap,
+          p: chipSize.padding,
           minWidth: 0,
           border: 0,
-          borderRadius: dense ? "var(--radius-sm)" : "9px",
+          borderRadius: chipSize.radius,
           bgcolor: "transparent",
           color: "var(--ink)",
           font: "inherit",
@@ -84,21 +115,26 @@ export default function PlayerChip({
       <PlayerPhoto
         photoImageId={pickable.photoImageId}
         teamLogoImageId={teamLogoImageId}
-        size={dense ? 26 : 30}
+        size={chipSize.photo}
       />
       <Typography
         variant="bodyStrong"
         noWrap
         title={pickable.handle}
         sx={[
-          { minWidth: 0 },
-          dense && { fontSize: 13 },
+          { minWidth: 0, fontSize: chipSize.handle },
           struckOut && { textDecoration: "line-through" },
         ]}
       >
         {pickable.handle}
       </Typography>
       {pickable.kind === "coach" && <CoachBadge />}
+      {points !== undefined && (
+        <Points
+          points={points}
+          sx={{ ml: "auto", fontSize: chipSize.points }}
+        />
+      )}
     </Box>
   );
 }

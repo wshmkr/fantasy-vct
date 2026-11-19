@@ -5,6 +5,7 @@ interface ProgressBarProps {
   total: number;
   height?: number;
   muted?: boolean;
+  fillColor?: string;
 }
 
 export default function ProgressBar({
@@ -12,6 +13,7 @@ export default function ProgressBar({
   total,
   height = 4,
   muted = false,
+  fillColor = muted ? "var(--line)" : "var(--accent)",
 }: ProgressBarProps) {
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
@@ -31,7 +33,7 @@ export default function ProgressBar({
           width: `${percent}%`,
           height: "100%",
           borderRadius: "inherit",
-          bgcolor: muted ? "var(--line)" : "var(--accent)",
+          bgcolor: fillColor,
           transition: "width 300ms ease-out",
         }}
       />

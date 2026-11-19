@@ -29,8 +29,8 @@ import { HttpError } from "../error-handler.js";
 import { toScoredPickable } from "../pickables.js";
 import { scoreTournament } from "../points.js";
 import { toStage } from "../stages.js";
+import { standingsOf } from "../standings.js";
 import { syncTournament } from "../sync.js";
-import { tournamentMembersOf } from "../tournament-members.js";
 import { findTournament, type TournamentRow } from "../tournaments.js";
 import { importEvent, reimportTournament } from "../vlr/import.js";
 import { startImportJob } from "./imports.js";
@@ -52,6 +52,8 @@ function deriveTournamentStatus(
   return "upcoming";
 }
 
+const LEADER_COUNT = 3;
+
 function toTournament(row: TournamentRow): Tournament {
   const stageRows = db
     .select()
@@ -72,6 +74,13 @@ function toTournament(row: TournamentRow): Tournament {
       .where(eq(tournamentTeams.tournamentId, row.id))
       .get()?.teams ?? 0;
 
+  const standings = standingsOf(row.id);
+  const leaders = standings
+    .slice(0, LEADER_COUNT)
+    .flatMap(({ user, color, rank, points }) =>
+      points === null ? [] : [{ user, color, rank, points }],
+    );
+
   return {
     id: row.id,
     name: row.name,
@@ -83,7 +92,8 @@ function toTournament(row: TournamentRow): Tournament {
       matchStatuses,
     ),
     stages: stageRows.map(toStage),
-    members: tournamentMembersOf(row.id),
+    members: standings.map(({ user, color }) => ({ user, color })),
+    leaders,
     teamCount,
     matchesPlayed: matchStatuses.filter((s) => s === "completed").length,
     matchesTotal: matchStatuses.length,

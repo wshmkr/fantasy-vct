@@ -21,6 +21,16 @@ export function draftLookups(draft: DraftState): {
   };
 }
 
+export function splitRoster<Item>(
+  roster: Item[],
+  kindOf: (item: Item) => PickableKind,
+) {
+  return {
+    players: roster.filter((item) => kindOf(item) === "player"),
+    coach: roster.find((item) => kindOf(item) === "coach"),
+  };
+}
+
 export function seatRoster(
   seat: DraftSeat,
   pickablesById: ReadonlyMap<number, PoolPickable>,
@@ -28,23 +38,25 @@ export function seatRoster(
   const roster = seat.rosterPickableIds.flatMap(
     (id) => pickablesById.get(id) ?? [],
   );
-  return {
-    players: roster.filter((pickable) => pickable.kind === "player"),
-    coach: roster.find((pickable) => pickable.kind === "coach"),
-  };
+  return splitRoster(roster, (pickable) => pickable.kind);
 }
 
-export type PoolSortKey = "handle" | "formRating" | "formAcs" | "formKd";
+export type PoolSortKey =
+  | "handle"
+  | "points"
+  | "formRating"
+  | "formAcs"
+  | "formKd";
 
 export interface PoolSort {
   key: PoolSortKey;
   descending: boolean;
 }
 
-export const DEFAULT_POOL_SORT: PoolSort = {
-  key: "formRating",
-  descending: true,
-};
+export function defaultPoolSort(pool: PoolPickable[]): PoolSort {
+  const hasPoints = pool.some((pickable) => pickable.points !== null);
+  return { key: hasPoints ? "points" : "formRating", descending: true };
+}
 
 export interface PoolFilter {
   search: string;
