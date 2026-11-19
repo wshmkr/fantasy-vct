@@ -1075,7 +1075,7 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] 1.7 Draft room, client (commit 7abe906)
 - [x] 1.8 Rosters and polish (commit bb28d5e)
 - [x] Checkpoint 1 gate, report and re-planning notes (demo steps 1–9 passed 2026-11-17)
-- [ ] 2.1 Match scrape and sync
+- [x] 2.1 Match scrape and sync (commit b05f5f2)
 - [ ] 2.2 Scoring and standings API
 - [ ] 2.3 Standings UI
 - [ ] 2.4 Matches tab
