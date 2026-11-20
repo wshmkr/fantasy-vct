@@ -9,6 +9,7 @@ import {
   updateTournamentBodySchema,
 } from "../../shared/api.js";
 import {
+  hasTournamentEnded,
   MAX_MANAGERS,
   type MatchStatus,
   type StageStatus,
@@ -46,16 +47,12 @@ import { startImportJob } from "./imports.js";
 function deriveTournamentStatus(
   stageStatuses: StageStatus[],
   matchStatuses: MatchStatus[],
+  vlrEndsOn: string | null,
 ): TournamentStatus {
   if (stageStatuses.some((s) => s === "drafting" || s === "paused")) {
     return "drafting";
   }
-  if (
-    matchStatuses.length > 0 &&
-    matchStatuses.every((s) => s === "completed")
-  ) {
-    return "ended";
-  }
+  if (hasTournamentEnded(matchStatuses, vlrEndsOn, new Date())) return "ended";
   if (matchStatuses.some((s) => s !== "upcoming")) return "live";
   return "upcoming";
 }
@@ -99,6 +96,7 @@ function toTournament(row: TournamentRow): Tournament {
     status: deriveTournamentStatus(
       stageRows.map((stage) => stage.status),
       matchStatuses,
+      row.vlrEndsOn,
     ),
     stages: stageRows.map(toStage),
     members: standings.map(({ user, color }) => ({ user, color })),

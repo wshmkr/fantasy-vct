@@ -69,6 +69,7 @@ interface ScrapedEvent {
   vlrEventId: string;
   name: string;
   logoImageId: number | null;
+  endsOn: string | null;
   teams: ScrapedTeam[];
   stages: ParsedStage[];
   matches: ParsedMatch[];
@@ -174,6 +175,7 @@ async function scrapeEvent(
     vlrEventId: vlrEventIdFromUrl(eventUrl),
     name: event.name,
     logoImageId: event.logoUrl ? await storeImage(source, event.logoUrl) : null,
+    endsOn: event.endsOn,
     teams: scrapedTeams,
     stages:
       schedule.stages.length > 0
@@ -235,10 +237,15 @@ function saveEvent(
       vlrEventUrl: eventUrl,
       vlrEventId: event.vlrEventId,
       logoImageId: event.logoImageId,
+      vlrEndsOn: event.endsOn,
     })
     .onConflictDoUpdate({
       target: tournaments.vlrEventId,
-      set: { name: event.name, logoImageId: event.logoImageId },
+      set: {
+        name: event.name,
+        logoImageId: event.logoImageId,
+        vlrEndsOn: event.endsOn,
+      },
     })
     .returning({ id: tournaments.id })
     .get().id;

@@ -74,6 +74,23 @@ export function isPastAutoRetryWindow(
   );
 }
 
+const END_DATE_GRACE_MS = 2 * 24 * 60 * 60_000;
+
+// VLR lists a round only once the previous one is decided, so finishing every listed match isn't the end.
+// The grace covers time zones and results posted late.
+export function hasTournamentEnded(
+  matchStatuses: MatchStatus[],
+  vlrEndsOn: string | null,
+  now: Date,
+): boolean {
+  return (
+    matchStatuses.length > 0 &&
+    matchStatuses.every((status) => status === "completed") &&
+    (vlrEndsOn === null ||
+      now.getTime() >= Date.parse(vlrEndsOn) + END_DATE_GRACE_MS)
+  );
+}
+
 export const SCRAPE_STATUSES = ["pending", "ok", "failed"] as const;
 export type ScrapeStatus = (typeof SCRAPE_STATUSES)[number];
 

@@ -324,7 +324,7 @@ Rules:
 - **Joining is enforced in a transaction:** `joining_open` must be true, fewer than 8 joined, and the color is free (`unique(tournament_id, color)`). Starting any stage's draft sets `joining_open = false`.
 - **Tournament status is derived, not stored:**
   - Drafting if any stage is drafting or paused
-  - Ended when every match is completed (or VLR marks the event completed)
+  - Ended when every match is completed **and** the end date in VLR's event header is 2+ days past (VLR lists a round only once the previous one is decided)
   - Live if any match has started
   - Upcoming otherwise
 - **Progress** = completed matches ÷ all matches in the tournament (per stage on the Settings tab).
@@ -454,7 +454,7 @@ Pasting an event link runs the whole import, with a progress indicator. There's 
 
 **When it runs:**
 - **Ticker:** once a minute, the server checks for **due** matches: `scheduled_at` has passed (or VLR already shows the match live or completed), `scrape_status` isn't `ok`, and `checked_at` is empty or at least 15 minutes old. So a match at 18:00 is checked at about 18:00, 18:15, 18:30… until it's `ok`. `isDue(match, now)` is a pure function with tests.
-- **Schedule refresh:** each tournament that hasn't ended refetches its event matches page hourly, and also at the start of any run that has a due match in it. This keeps times, statuses, scores and TBD teams current, so a postponed match simply becomes due later.
+- **Schedule refresh:** each tournament that hasn't ended refetches its event page (for the end date) and matches page hourly, and also at the start of any run that has a due match in it. This keeps times, statuses, scores and TBD teams current, so a postponed match simply becomes due later.
 - **Sync button** (`POST /api/tournaments/:id/sync`, commissioner only): refresh the schedule, then treat every started, not-`ok` match as due now. It returns `202` immediately and the job runs in the background; `GET /api/tournaments/:id/matches` carries `syncRunning` so the button can spin.
 - The ticker starts with the server, never in tests. `SCHEDULER=off` disables it.
 

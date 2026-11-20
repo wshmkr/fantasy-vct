@@ -3,7 +3,7 @@ import type TestAgent from "supertest/lib/agent.js";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { MANAGER_COLORS, type Tournament } from "../../shared/entities.js";
 import { db } from "../db/client.js";
-import { images, matches, stages } from "../db/schema.js";
+import { images, matches, stages, tournaments } from "../db/schema.js";
 import { isSyncRunning } from "../sync.js";
 import { importAndWait, insertUser, loginAs } from "../test-utils.js";
 import { FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
@@ -77,6 +77,9 @@ describe("tournaments API", () => {
       matchesPlayed: 0,
     });
     db.update(matches).set({ status: "completed" }).run();
+    db.update(tournaments).set({ vlrEndsOn: "2999-01-01" }).run();
+    expect((await member.get(path)).body.status).toBe("live");
+    db.update(tournaments).set({ vlrEndsOn: "2000-01-01" }).run();
     expect((await member.get(path)).body.status).toBe("ended");
     for (const { id, status } of savedStatuses) {
       db.update(matches).set({ status }).where(eq(matches.id, id)).run();

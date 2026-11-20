@@ -337,7 +337,10 @@ describe("syncTournament", () => {
       now: () => now,
     });
 
-    expect(fakeVlr.downloadedUrls[0]).toContain("/event/matches/3124/");
+    expect(fakeVlr.downloadedUrls.slice(0, 2)).toEqual([
+      expect.stringContaining("/event/3124/"),
+      expect.stringContaining("/event/matches/3124/"),
+    ]);
     expect(
       db.select().from(matches).where(eq(matches.id, scraped.id)).get(),
     ).toMatchObject({ bestOf: 5, team1Id: null, checkedAt: null });

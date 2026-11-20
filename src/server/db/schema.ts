@@ -59,6 +59,7 @@ export const tournaments = sqliteTable("tournaments", {
   name: text("name").notNull(),
   vlrEventUrl: text("vlr_event_url").notNull(),
   vlrEventId: text("vlr_event_id").notNull().unique(),
+  vlrEndsOn: text("vlr_ends_on"),
   logoImageId: integer("logo_image_id").references(() => images.id),
   joiningOpen: integer("joining_open", { mode: "boolean" })
     .notNull()

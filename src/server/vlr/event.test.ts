@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { parseEventPage, parseEventTeams, vlrEventIdFromUrl } from "./event.js";
+import {
+  eventEndDate,
+  parseEventPage,
+  parseEventTeams,
+  vlrEventIdFromUrl,
+} from "./event.js";
 
 const fixture = (name: string) =>
   readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8");
@@ -14,6 +19,10 @@ describe("parseEventPage", () => {
     expect(event.matchesUrl).toBe(
       "https://www.vlr.gg/event/matches/3124/spike-series-2026-convergence-emea-dach/?series_id=all",
     );
+  });
+
+  test("reads the end date from the header", () => {
+    expect(event.endsOn).toBe("2026-12-18");
   });
 
   test("lists the teams of the shown stage with ids, links and logos", () => {
@@ -57,4 +66,11 @@ test("vlrEventIdFromUrl reads the id from an event link", () => {
     ),
   ).toBe("3124");
   expect(() => vlrEventIdFromUrl("https://www.vlr.gg/team/2")).toThrow();
+});
+
+test("eventEndDate reads the last day of VLR's date ranges", () => {
+  expect(eventEndDate("Nov 20 – Dec 6, 2026")).toBe("2026-12-06");
+  expect(eventEndDate("Dec 1–6, 2026")).toBe("2026-12-06");
+  expect(eventEndDate("Dec 28, 2026 – Jan 5, 2027")).toBe("2027-01-05");
+  expect(eventEndDate("TBD")).toBeNull();
 });

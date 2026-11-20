@@ -1,5 +1,9 @@
 import { eq, inArray } from "drizzle-orm";
-import { hasStarted, isPastAutoRetryWindow } from "../shared/entities.js";
+import {
+  hasStarted,
+  hasTournamentEnded,
+  isPastAutoRetryWindow,
+} from "../shared/entities.js";
 import { db as appDb, type Db } from "./db/client.js";
 import {
   matches,
@@ -179,10 +183,13 @@ async function refreshSchedule(
   // Stamped even on failure, so a broken page is retried hourly rather than every tick.
   scheduleRefreshedAt.set(tournament.id, now().getTime());
   try {
-    // The event page only supplies the matches URL, so the copy cached at import is enough.
-    const { matchesUrl } = parseEventPage(
-      await fetchPage({ db, download, refresh: false }, tournament.vlrEventUrl),
+    const { matchesUrl, endsOn } = parseEventPage(
+      await fetchPage({ db, download, refresh: true }, tournament.vlrEventUrl),
     );
+    db.update(tournaments)
+      .set({ vlrEndsOn: endsOn })
+      .where(eq(tournaments.id, tournament.id))
+      .run();
     const schedule = parseMatchesPage(
       await fetchPage({ db, download, refresh: true }, matchesUrl),
     );
@@ -233,7 +240,11 @@ export function syncDueMatches(options: SyncOptions = {}): Promise<void> {
   return runExclusively(async () => {
     for (const tournament of db.select().from(tournaments).all()) {
       const scheduled = matchesOf(db, tournament.id);
-      const ended = scheduled.every((match) => match.status === "completed");
+      const ended = hasTournamentEnded(
+        scheduled.map((match) => match.status),
+        tournament.vlrEndsOn,
+        now(),
+      );
       const lastRefreshAt = scheduleRefreshedAt.get(tournament.id);
       const refreshIsDue =
         lastRefreshAt === undefined ||

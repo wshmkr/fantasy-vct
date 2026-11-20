@@ -1,0 +1,1 @@
+ALTER TABLE `tournaments` ADD `vlr_ends_on` text;

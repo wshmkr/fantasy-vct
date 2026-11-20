@@ -21,6 +21,7 @@ export interface ParsedEventPage {
   teams: ParsedEventTeam[];
   matchesUrl: string;
   otherStagePageUrls: string[];
+  endsOn: string | null;
 }
 
 export function vlrEventIdFromUrl(url: string): string {
@@ -39,6 +40,35 @@ export function personFromHref(href: string, handle: string): ParsedPerson {
   return { vlrId: vlrIdFromHref(href), handle, vlrUrl: absoluteVlrUrl(href) };
 }
 
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+// VLR writes ranges like "Nov 20 – Dec 6, 2026" or "Dec 1–6, 2026"; returns "YYYY-MM-DD".
+export function eventEndDate(dates: string): string | null {
+  const end = /(?:([A-Z][a-z]{2})[a-z]*\s+)?(\d{1,2}),\s*(\d{4})\s*$/.exec(
+    dates,
+  );
+  if (!end) return null;
+  const [, endMonth, day, year] = end;
+  const month =
+    endMonth ?? [...dates.matchAll(/([A-Z][a-z]{2})[a-z]*\s+\d/g)].at(-1)?.[1];
+  const monthIndex = MONTHS.indexOf(month ?? "");
+  if (monthIndex < 0) return null;
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${day?.padStart(2, "0")}`;
+}
+
 export function parseEventPage(html: string): ParsedEventPage {
   const $ = cheerio.load(html);
   const logoSrc = $(".event-header-thumb img").attr("src");
@@ -46,6 +76,10 @@ export function parseEventPage(html: string): ParsedEventPage {
   if (!matchesHref) throw new Error("Event page has no matches link");
   const matchesUrl = new URL(absoluteVlrUrl(matchesHref));
   matchesUrl.searchParams.set("series_id", "all");
+  const datesValue = $(".event-header-main-meta > div")
+    .filter((_, item) => $(item).find(".label").text().trim() === "Dates")
+    .find(".value")
+    .text();
 
   return {
     name: $(".event-header-main-title").text().trim(),
@@ -55,6 +89,7 @@ export function parseEventPage(html: string): ParsedEventPage {
     otherStagePageUrls: $(".wf-subnav a.wf-subnav-item:not(.mod-active)")
       .map((_, link) => absoluteVlrUrl($(link).attr("href") ?? ""))
       .get(),
+    endsOn: eventEndDate(datesValue.trim()),
   };
 }
 
