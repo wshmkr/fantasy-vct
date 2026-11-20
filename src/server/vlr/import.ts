@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type {
   ImportProgress,
@@ -321,7 +321,6 @@ export function saveScheduleAndStages(
   const stageKeysSeenBefore = stageKeysOfStoredMatches(tx, tournamentId);
   saveSchedule(tx, tournamentId, schedule.matches, teamIdByName);
   addNewStages(tx, tournamentId, schedule.stages, stageKeysSeenBefore);
-  detectSwissStages(tx, tournamentId, schedule.stages);
 }
 
 function saveSchedule(
@@ -358,44 +357,6 @@ function saveSchedule(
           score2: unlessScrapedOk(matches.score2),
         },
       })
-      .run();
-  }
-}
-
-// Skips stages detected before (swiss_wins set), so a Drizzle Studio fix sticks.
-export function detectSwissStages(
-  tx: Transaction,
-  tournamentId: number,
-  vlrStages: ParsedStage[],
-) {
-  const undetectedStages = tx
-    .select({ id: stages.id, keys: stages.vlrStageKeysJson })
-    .from(stages)
-    .where(and(eq(stages.tournamentId, tournamentId), isNull(stages.swissWins)))
-    .all();
-  for (const vlrStage of vlrStages) {
-    const stage = undetectedStages.find((candidate) =>
-      candidate.keys.includes(vlrStage.key),
-    );
-    if (!stage || !/swiss/i.test(vlrStage.name)) continue;
-    const teamCount = new Set(
-      tx
-        .select({ team1Id: matches.team1Id, team2Id: matches.team2Id })
-        .from(matches)
-        .where(
-          and(
-            eq(matches.tournamentId, tournamentId),
-            eq(matches.stageKey, vlrStage.key),
-          ),
-        )
-        .all()
-        .flatMap((match) => [match.team1Id, match.team2Id])
-        .filter((teamId) => teamId !== null),
-    ).size;
-    if (teamCount < 2) continue;
-    tx.update(stages)
-      .set({ format: "swiss", swissWins: Math.round(Math.log2(teamCount)) - 1 })
-      .where(eq(stages.id, stage.id))
       .run();
   }
 }

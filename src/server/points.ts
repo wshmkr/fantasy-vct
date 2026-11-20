@@ -7,7 +7,6 @@ import {
   type ScoringConfig,
   scoringConfigWith,
   sum,
-  swissPhantomPoints,
   type TeamSeries,
 } from "../shared/scoring.js";
 import { db } from "./db/client.js";
@@ -104,17 +103,37 @@ function teamSeriesOf(
   };
 }
 
-// Uses the series score, not saved maps, so a Swiss win counts even when its scrape failed.
-function wonMatch(match: MatchRow, teamId: number): boolean {
-  const [own, opponent] =
-    match.team1Id === teamId
-      ? [match.score1, match.score2]
-      : [match.score2, match.score1];
-  return (own ?? 0) > (opponent ?? 0);
-}
-
 const teamIdsOf = (match: MatchRow) =>
   [match.team1Id, match.team2Id].filter((id) => id !== null);
+
+const forfeitWinnerTeamId = (match: MatchRow) =>
+  match.forfeitWinner === 1 ? match.team1Id : match.team2Id;
+
+const hasResult = ({ match, maps }: ScoredMatch) =>
+  maps.length > 0 || match.forfeitWinner !== null;
+
+// A forfeit scores every pickable of the winning team alike: no stats, sweep or coach formula.
+function pickableMatchPoints(
+  pickable: PickableRow,
+  match: MatchRow,
+  rows: MatchRows,
+  pairings: TeamMapPairing[],
+  config: ScoringConfig,
+): number {
+  if (match.forfeitWinner !== null) {
+    return forfeitWinnerTeamId(match) === pickable.teamId
+      ? config.forfeitWin
+      : 0;
+  }
+  const series = teamSeriesOf(match, rows.maps, pickable.teamId);
+  return pickable.kind === "coach"
+    ? coachMatchPoints(series, config)
+    : playerMatchPoints(
+        series,
+        scoredRowsOf(pickable, rows.statRows, pairings),
+        config,
+      );
+}
 
 function pairTeamMaps(
   match: MatchRow,
@@ -186,16 +205,9 @@ function scoreMatch(
   const pointsByPickable = new Map<number, number>();
   for (const pickable of rosters?.pool ?? []) {
     if (!teamIdsOf(match).includes(pickable.teamId)) continue;
-    const series = teamSeriesOf(match, rows.maps, pickable.teamId);
     pointsByPickable.set(
       pickable.id,
-      pickable.kind === "coach"
-        ? coachMatchPoints(series, config)
-        : playerMatchPoints(
-            series,
-            scoredRowsOf(pickable, rows.statRows, pairings),
-            config,
-          ),
+      pickableMatchPoints(pickable, match, rows, pairings, config),
     );
   }
   return {
@@ -213,24 +225,17 @@ function scoreMatch(
 
 function stagePointsOf(
   pickable: PickableRow,
-  stage: StageRow,
   stageMatches: ScoredMatch[],
 ): number | null {
   const teamMatches = stageMatches.filter(({ match }) =>
     teamIdsOf(match).includes(pickable.teamId),
   );
-  if (!teamMatches.some(({ maps }) => maps.length > 0)) return null;
-  const teamSeries = teamMatches.map(({ match, pointsByPickable }) => ({
-    completed: match.status === "completed",
-    won: wonMatch(match, pickable.teamId),
-    scrapeOk: match.scrapeStatus === "ok",
-    points: pointsByPickable.get(pickable.id) ?? 0,
-  }));
-  const phantomPoints =
-    stage.format === "swiss" && stage.swissWins !== null
-      ? swissPhantomPoints(stage.swissWins, teamSeries)
-      : 0;
-  return sum(teamSeries.map((series) => series.points)) + phantomPoints;
+  if (!teamMatches.some(hasResult)) return null;
+  return sum(
+    teamMatches.map(
+      ({ pointsByPickable }) => pointsByPickable.get(pickable.id) ?? 0,
+    ),
+  );
 }
 
 // Everything is computed on read from one load of the tournament; nothing stores a point total.
@@ -336,11 +341,11 @@ export function scoreTournament(tournamentId: number): TournamentScores {
       stage,
       pool,
       rosterEntries,
-      hasPoints: stageMatches.some(({ maps }) => maps.length > 0),
+      hasPoints: stageMatches.some(hasResult),
       pointsByPickable: new Map(
         pool.map((pickable) => [
           pickable.id,
-          stagePointsOf(pickable, stage, stageMatches),
+          stagePointsOf(pickable, stageMatches),
         ]),
       ),
     };

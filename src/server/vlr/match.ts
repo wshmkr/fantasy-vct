@@ -28,6 +28,7 @@ export interface ParsedMatchPage {
   status: MatchStatus;
   score1: number | null;
   score2: number | null;
+  forfeitWinner: TeamSide | null;
   finishedMaps: ParsedMap[];
 }
 
@@ -49,6 +50,9 @@ function ownText(element: cheerio.Cheerio<AnyNode>): string {
   return element.clone().children().remove().end().text().trim();
 }
 
+// VLR shows "forfeited by <team>" where a played match says "final".
+const isForfeitNote = (note: string) => note.startsWith("forfeited by");
+
 function toCount(text: string): number {
   const trimmed = text.trim();
   if (trimmed === "") return 0;
@@ -60,7 +64,7 @@ function toCount(text: string): number {
 }
 
 function matchStatusOf(note: string): MatchStatus {
-  if (note === "final") return "completed";
+  if (note === "final" || isForfeitNote(note)) return "completed";
   if (note === "live") return "live";
   return "upcoming";
 }
@@ -83,71 +87,81 @@ export function parseMatchPages(
   const bestOf = /bo(\d)/.exec(formatNote)?.[1];
   if (!bestOf) throw new Error("Match page has no best-of");
   const status = matchStatusOf(statusNote);
+  const scoreSpans = $(".match-header-vs .sp-hide span").not(
+    ".match-header-vs-score-colon",
+  );
   const [score1 = null, score2 = null] =
     status === "upcoming"
       ? []
-      : $(".match-header-vs .sp-hide span")
-          .not(".match-header-vs-score-colon")
-          .map((_, score) => toCount($(score).text()))
-          .get();
+      : scoreSpans.map((_, score) => toCount($(score).text())).get();
+  const forfeitWinner: TeamSide | null = isForfeitNote(statusNote)
+    ? scoreSpans.last().hasClass("match-header-vs-score-winner")
+      ? 2
+      : 1
+    : null;
 
   const finishedMaps: ParsedMap[] = [];
-  $(".vm-stats-gamesnav-item")
-    .not('[data-game-id="all"]')
-    .each((index, navItem) => {
-      const gameId = $(navItem).attr("data-game-id");
-      const game = $(`.vm-stats-game[data-game-id="${gameId}"]`);
-      if (game.length === 0) return;
-      const header = game.find(".vm-stats-game-header");
-      const team1Rounds = toCount(header.find(".team .score").first().text());
-      const team2Rounds = toCount(header.find(".team.mod-right .score").text());
-      if (!isFinishedMap(team1Rounds, team2Rounds)) return;
-
-      const mapPerformance = performance.get(gameId ?? "");
-      const players = game
-        .find(".ovw-table")
-        .toArray()
-        .flatMap((table, tableIndex) =>
-          $(table)
-            .find(".ovw-row")
-            .not(".mod-head")
-            .map((_, row): ParsedPlayerMapStats => {
-              const link = $(row).find(".ovw-player a");
-              const handle = link.find(".ovw-player-name").text().trim();
-              const stat = (column: string) =>
-                toCount(
-                  $(row)
-                    .find(`[data-col="${column}"] .side.mod-both`)
-                    .first()
-                    .text(),
-                );
-              const highlights = mapPerformance?.get(handle);
-              if (!highlights) {
-                throw new Error(`No performance stats for ${handle}`);
-              }
-              return {
-                vlrPlayerId: vlrIdFromHref(link.attr("href") ?? ""),
-                handle,
-                side: tableIndex === 0 ? 1 : 2,
-                k: stat("kills"),
-                d: stat("deaths"),
-                a: stat("assists"),
-                fk: stat("fb"),
-                fd: stat("fd"),
-                ...highlights,
-              };
-            })
-            .get(),
+  // Maps played before a forfeit don't score.
+  if (forfeitWinner === null) {
+    $(".vm-stats-gamesnav-item")
+      .not('[data-game-id="all"]')
+      .each((index, navItem) => {
+        const gameId = $(navItem).attr("data-game-id");
+        const game = $(`.vm-stats-game[data-game-id="${gameId}"]`);
+        if (game.length === 0) return;
+        const header = game.find(".vm-stats-game-header");
+        const team1Rounds = toCount(header.find(".team .score").first().text());
+        const team2Rounds = toCount(
+          header.find(".team.mod-right .score").text(),
         );
+        if (!isFinishedMap(team1Rounds, team2Rounds)) return;
 
-      finishedMaps.push({
-        mapNo: index + 1,
-        mapName: ownText(header.find(".map-name > span").first()),
-        team1Rounds,
-        team2Rounds,
-        players,
+        const mapPerformance = performance.get(gameId ?? "");
+        const players = game
+          .find(".ovw-table")
+          .toArray()
+          .flatMap((table, tableIndex) =>
+            $(table)
+              .find(".ovw-row")
+              .not(".mod-head")
+              .map((_, row): ParsedPlayerMapStats => {
+                const link = $(row).find(".ovw-player a");
+                const handle = link.find(".ovw-player-name").text().trim();
+                const stat = (column: string) =>
+                  toCount(
+                    $(row)
+                      .find(`[data-col="${column}"] .side.mod-both`)
+                      .first()
+                      .text(),
+                  );
+                const highlights = mapPerformance?.get(handle);
+                if (!highlights) {
+                  throw new Error(`No performance stats for ${handle}`);
+                }
+                return {
+                  vlrPlayerId: vlrIdFromHref(link.attr("href") ?? ""),
+                  handle,
+                  side: tableIndex === 0 ? 1 : 2,
+                  k: stat("kills"),
+                  d: stat("deaths"),
+                  a: stat("assists"),
+                  fk: stat("fb"),
+                  fd: stat("fd"),
+                  ...highlights,
+                };
+              })
+              .get(),
+          );
+
+        finishedMaps.push({
+          mapNo: index + 1,
+          mapName: ownText(header.find(".map-name > span").first()),
+          team1Rounds,
+          team2Rounds,
+          players,
+        });
       });
-    });
+  }
 
   return {
     team1VlrId: teamVlrId(1),
@@ -156,6 +170,7 @@ export function parseMatchPages(
     status,
     score1,
     score2,
+    forfeitWinner,
     finishedMaps,
   };
 }

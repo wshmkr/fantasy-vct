@@ -72,4 +72,18 @@ describe("parseMatchesPage", () => {
       status: "upcoming",
     });
   });
+
+  test("a forfeit is listed as a completed 0-0 Bo3", () => {
+    const forfeit = parseMatchesPage(
+      fixture("matches-3175-forfeit-day.html"),
+    ).matches.find((match) => match.vlrId === "784786");
+    expect(forfeit).toMatchObject({
+      team1Name: "BONK",
+      team2Name: "Aurora Gaming",
+      bestOf: 3,
+      status: "completed",
+      score1: 0,
+      score2: 0,
+    });
+  });
 });

@@ -65,7 +65,7 @@ function sanityProblem(page: ParsedMatchPage): string | null {
       }
     }
   }
-  if (page.status === "completed") {
+  if (page.status === "completed" && page.forfeitWinner === null) {
     const team1MapWins = page.finishedMaps.filter(
       (map) => map.team1Rounds > map.team2Rounds,
     ).length;
@@ -123,6 +123,7 @@ function saveScrapedMatch(
         status: page.status,
         score1: page.score1,
         score2: page.score2,
+        forfeitWinner: page.forfeitWinner,
         scrapeStatus: page.status === "completed" ? "ok" : "pending",
         scrapeError: null,
         scrapedAt,

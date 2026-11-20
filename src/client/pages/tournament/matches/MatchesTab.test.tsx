@@ -58,6 +58,7 @@ function summary(
     scheduledAt,
     status: "completed",
     scrapeStatus: "ok",
+    forfeitWinner: null,
     needsAttention: false,
     mapCount: 2,
     team1: { ...sentinels, score: 2, ownerUserIds: [member.id] },
@@ -103,6 +104,7 @@ const detail: MatchDetail = {
   scheduledAt: "2026-03-19T21:00:00.000Z",
   status: "completed",
   scrapeStatus: "ok",
+  forfeitWinner: null,
   maps: [{ mapNo: 1, mapName: "Ascent", team1Rounds: 13, team2Rounds: 8 }],
   team1: {
     ...sentinels,

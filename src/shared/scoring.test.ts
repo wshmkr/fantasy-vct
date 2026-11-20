@@ -8,10 +8,8 @@ import {
   playerMatchPoints,
   type RosteredPlayer,
   rankStandings,
-  type SwissSeriesResult,
   scoringConfigWith,
   sweepBonus,
-  swissPhantomPoints,
   type TeamSeries,
 } from "./scoring.js";
 
@@ -305,97 +303,6 @@ describe("coach points", () => {
 
   test("a live match gives the coach 0", () => {
     expect(coachMatchPoints(series(3, [[13, 8]], false))).toBe(0);
-  });
-});
-
-describe("Swiss phantom series", () => {
-  const swissWins = 3;
-  const played = (won: boolean, points: number): SwissSeriesResult => ({
-    completed: true,
-    won,
-    scrapeOk: true,
-    points,
-  });
-
-  test("a 3-0 team gets 2 series at the pick's average", () => {
-    expect(
-      swissPhantomPoints(swissWins, [
-        played(true, 100),
-        played(true, 50),
-        played(true, 150),
-      ]),
-    ).toBe(200);
-  });
-
-  test("a 3-1 team gets 1, a 3-2 team 0", () => {
-    expect(
-      swissPhantomPoints(swissWins, [
-        played(true, 100),
-        played(false, 20),
-        played(true, 60),
-        played(true, 20),
-      ]),
-    ).toBe(50);
-    expect(
-      swissPhantomPoints(swissWins, [
-        played(true, 100),
-        played(false, 20),
-        played(false, 60),
-        played(true, 20),
-        played(true, 50),
-      ]),
-    ).toBe(0);
-  });
-
-  test("an eliminated team gets none", () => {
-    expect(
-      swissPhantomPoints(swissWins, [
-        played(true, 100),
-        played(false, 20),
-        played(false, 60),
-      ]),
-    ).toBe(0);
-  });
-
-  test("a sat-out series counts as 0 in the average", () => {
-    expect(
-      swissPhantomPoints(swissWins, [
-        played(true, 90),
-        played(true, 0),
-        played(true, 60),
-      ]),
-    ).toBe(100);
-  });
-
-  test("coaches use their own average", () => {
-    const coachSeries = [
-      series(3, [
-        [13, 8],
-        [13, 9],
-      ]),
-      series(3, [
-        [13, 1],
-        [13, 2],
-      ]),
-      series(3, [
-        [13, 3],
-        [11, 13],
-        [13, 5],
-      ]),
-    ].map((result) => played(true, coachMatchPoints(result)));
-    expect(swissPhantomPoints(swissWins, coachSeries)).toBe(
-      Math.round((2 * (82 + 82 + 74)) / 3),
-    );
-  });
-
-  test("only ok matches count toward the average", () => {
-    expect(
-      swissPhantomPoints(swissWins, [
-        played(true, 100),
-        played(true, 50),
-        { ...played(true, 10), scrapeOk: false },
-      ]),
-    ).toBe(150);
   });
 });
 

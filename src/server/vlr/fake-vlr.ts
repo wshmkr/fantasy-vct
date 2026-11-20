@@ -29,6 +29,7 @@ const fixtureByUrl: Record<string, string> = {
   ...matchFixtures("314896", "match-314896-bo3-2-0"),
   ...matchFixtures("314929", "match-314929-bo3-2-1-overtime"),
   ...matchFixtures("314898", "match-314898-sub"),
+  ...matchFixtures("784786", "match-784786-forfeit"),
 };
 const EMPTY_TEAM_PAGE = `<div class="wf-module-label">players</div><div></div>`;
 

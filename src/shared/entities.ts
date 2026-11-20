@@ -43,9 +43,6 @@ export function isDraftRunning(status: StageStatus): boolean {
 export const STAGE_SOURCES = ["vlr", "manual"] as const;
 export type StageSource = (typeof STAGE_SOURCES)[number];
 
-export const STAGE_FORMATS = ["standard", "swiss"] as const;
-export type StageFormat = (typeof STAGE_FORMATS)[number];
-
 export const MATCH_STATUSES = ["upcoming", "live", "completed"] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
@@ -145,7 +142,7 @@ export interface Pickable {
   formRounds: number | null;
 }
 
-// Tournament points, Swiss phantom series included; null until the pick's team has played.
+// Tournament points; null until the pick's team has played.
 export interface ScoredPickable extends Pickable {
   points: number | null;
 }

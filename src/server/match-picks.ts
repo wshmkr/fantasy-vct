@@ -30,7 +30,7 @@ export function ownerOf(stage: ScoredStage | undefined, pickableId: number) {
   );
 }
 
-// Missing players are listed too, since a sub's stats may be credited to them.
+// Missing players are listed too, since a sub's stats may be credited to them, and a forfeit lists everyone.
 export function picksOf(
   scored: ScoredMatch,
   stage: ScoredStage | undefined,
@@ -50,6 +50,7 @@ export function picksOf(
       const isCoach = pickable.kind === "coach";
       if (
         !isCoach &&
+        scored.match.forfeitWinner === null &&
         ownRows.length === 0 &&
         !missingPickableIds.has(pickable.id)
       ) {

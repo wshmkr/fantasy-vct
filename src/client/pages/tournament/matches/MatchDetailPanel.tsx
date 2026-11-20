@@ -24,6 +24,7 @@ import {
   formatTime,
   matchWinner,
   type SubRow,
+  sideScoreLabel,
   teamTableRows,
   winnerSide,
 } from "./matchView";
@@ -286,8 +287,8 @@ function ScorePair({
   separatorGap = 0,
   sx,
 }: {
-  team1: number | null;
-  team2: number | null;
+  team1: number | string | null;
+  team2: number | string | null;
   winner: 1 | 2 | null;
   separator: string;
   separatorGap?: string | number;
@@ -335,8 +336,8 @@ function DetailHeader({ match }: { match: MatchDetail }) {
         {match.team1?.name}
       </Typography>
       <ScorePair
-        team1={match.team1?.score ?? null}
-        team2={match.team2?.score ?? null}
+        team1={sideScoreLabel(match, 1)}
+        team2={sideScoreLabel(match, 2)}
         winner={winner}
         separator=":"
         separatorGap="8px"
@@ -430,7 +431,13 @@ export default function MatchDetailPanel({
       {match && (
         <>
           <DetailHeader match={match} />
-          <MapChips match={match} />
+          {match.forfeitWinner === null ? (
+            <MapChips match={match} />
+          ) : (
+            <Typography sx={{ fontSize: 13, color: "var(--ink-muted)" }}>
+              Forfeit
+            </Typography>
+          )}
           {[match.team1, match.team2].map(
             (team) =>
               team && (

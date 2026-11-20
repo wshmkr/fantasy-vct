@@ -218,6 +218,7 @@ export interface MatchHeader {
   scheduledAt: string | null;
   status: MatchStatus;
   scrapeStatus: ScrapeStatus;
+  forfeitWinner: 1 | 2 | null;
 }
 
 export type MatchTeamBase = Team & { score: number | null };

@@ -464,3 +464,51 @@ describe("matches", () => {
     ).toBe(true);
   });
 });
+
+describe("forfeits", () => {
+  test("every pick of the winner gets the forfeit bonus and nothing else; the forfeiting side gets 0", async () => {
+    const winnerTeamId = idOf(teamIdByVlrId, "11001");
+    const tournamentPointsOf = async (handle: string) => {
+      const teamsBody: TeamWithPickables[] = (
+        await member.get(`/api/tournaments/${tournamentId}/teams`).expect(200)
+      ).body;
+      return teamsBody
+        .flatMap((team) => team.pickables)
+        .find((pickable) => pickable.handle === handle)?.points;
+    };
+    const nismoBefore = await tournamentPointsOf("NiSMO");
+    const benchPhoto = db.select().from(images).get()?.id ?? 0;
+    insertPickable("player", "bench 11001", winnerTeamId, "b11", benchPhoto);
+    db.insert(stagePool)
+      .values({ stageId: firstStageId, pickableId: pickableId("bench 11001") })
+      .run();
+    const id = db
+      .insert(matches)
+      .values({
+        tournamentId,
+        vlrId: "forfeit",
+        stageKey: "s1",
+        team1Id: winnerTeamId,
+        team2Id: idOf(teamIdByVlrId, "106"),
+        bestOf: 3,
+        status: "completed",
+        score1: 0,
+        score2: 0,
+        forfeitWinner: 1,
+        scrapeStatus: "ok",
+      })
+      .returning()
+      .get().id;
+    matchIdByVlrId.set("forfeit", id);
+
+    const detail = await matchDetail("forfeit");
+    const winnerPicks = detail.team1?.picks ?? [];
+    expect(winnerPicks.map((pick) => pick.pickable.handle)).toEqual(
+      expect.arrayContaining(["NiSMO", "bench 11001", "Coach 11001"]),
+    );
+    expect(winnerPicks.every((pick) => pick.points === 80)).toBe(true);
+    expect(detail.team2?.picks.length).toBeGreaterThan(0);
+    expect(detail.team2?.picks.every((pick) => pick.points === 0)).toBe(true);
+    expect(await tournamentPointsOf("NiSMO")).toBe((nismoBefore ?? 0) + 80);
+  });
+});

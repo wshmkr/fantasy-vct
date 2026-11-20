@@ -87,6 +87,7 @@ export interface ScoringConfig {
   sweep: number;
   coachRoundWon: number;
   coachUnplayedMap: number;
+  forfeitWin: number;
 }
 
 const DEFAULT_SCORING: ScoringConfig = {
@@ -102,6 +103,7 @@ const DEFAULT_SCORING: ScoringConfig = {
   sweep: 15,
   coachRoundWon: 2,
   coachUnplayedMap: 30,
+  forfeitWin: 80,
 };
 
 export function scoringConfigWith(
@@ -221,26 +223,14 @@ export function coachMatchPoints(
   );
 }
 
-export interface SwissSeriesResult {
-  completed: boolean;
-  won: boolean;
-  scrapeOk: boolean;
-  points: number;
-}
-
-// Every series the pick's team played in the stage; a series the pick sat out has 0 points.
-export function swissPhantomPoints(
-  swissWins: number,
-  teamSeries: SwissSeriesResult[],
-): number {
-  const completed = teamSeries.filter((series) => series.completed);
-  const wins = completed.filter((series) => series.won).length;
-  const scored = teamSeries.filter((series) => series.scrapeOk);
-  if (wins < swissWins || scored.length === 0) return 0;
-  const phantomSeries = 2 * swissWins - 1 - completed.length;
-  const averageSeriesPoints =
-    sum(scored.map((series) => series.points)) / scored.length;
-  return Math.round(phantomSeries * averageSeriesPoints);
+// A forfeit's series score means nothing, so its sides read W and FF.
+export function seriesScoreLabel(
+  score: number | null,
+  side: 1 | 2,
+  forfeitWinner: 1 | 2 | null,
+): number | string | null {
+  if (forfeitWinner === null) return score;
+  return forfeitWinner === side ? "W" : "FF";
 }
 
 interface RankableStanding {

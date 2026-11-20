@@ -41,6 +41,7 @@ function matchHeaderOf(match: MatchRow, stageId: number | null): MatchHeader {
     scheduledAt: match.scheduledAt,
     status: match.status,
     scrapeStatus: match.scrapeStatus,
+    forfeitWinner: match.forfeitWinner,
   };
 }
 

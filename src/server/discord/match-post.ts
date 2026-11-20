@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import type { MapStatLine } from "../../shared/scoring.js";
+import { type MapStatLine, seriesScoreLabel } from "../../shared/scoring.js";
 import { db } from "../db/client.js";
 import { matches } from "../db/schema.js";
 import { picksOf } from "../match-picks.js";
@@ -35,7 +35,7 @@ export interface PostedTeam {
   name: string;
   heading: string;
   roundsByMap: number[];
-  score: number | null;
+  score: number | string | null;
   picks: PostedPick[];
 }
 
@@ -50,6 +50,7 @@ export interface MatchPost {
   tournamentName: string;
   stageName: string | null;
   vlrMatchUrl: string;
+  forfeit: boolean;
   maps: { mapName: string; team1Rounds: number; team2Rounds: number }[];
   team1: PostedTeam;
   team2: PostedTeam;
@@ -69,14 +70,19 @@ function mapScore({
 }
 
 // A coach has no K/D/A, so their line shows the rounds their team won on each map.
-function performance({ isCoach, stats }: PostedPick, roundsByMap: number[]) {
+function performance(
+  { isCoach, stats }: PostedPick,
+  roundsByMap: number[],
+  forfeit: boolean,
+) {
+  if (forfeit) return "—";
   if (isCoach) return roundsByMap.join("/") || "—";
   return stats ? `${stats.k}/${stats.d}/${stats.a}` : "DNP";
 }
 
 // Discord embeds have no tables, and at most three inline fields share a row, so a team's
 // picks become three columns kept to one line per cell so the rows line up.
-function teamColumns(team: PostedTeam) {
+function teamColumns(team: PostedTeam, forfeit: boolean) {
   const picks = team.picks.toSorted(
     (a, b) => Number(a.isCoach) - Number(b.isCoach) || b.points - a.points,
   );
@@ -84,7 +90,7 @@ function teamColumns(team: PostedTeam) {
     column(team.heading, picks.map(pickName)),
     column(
       "K/D/A",
-      picks.map((pick) => performance(pick, team.roundsByMap)),
+      picks.map((pick) => performance(pick, team.roundsByMap, forfeit)),
     ),
     column(
       "Pts · Manager",
@@ -120,13 +126,16 @@ export function matchPostMessage(post: MatchPost): DiscordMessage {
       {
         title: `${post.team1.name} ${post.team1.score ?? 0}–${post.team2.score ?? 0} ${post.team2.name}`,
         url: post.vlrMatchUrl,
-        description: [post.stageName, ...post.maps.map(mapScore)]
+        description: [
+          post.stageName,
+          ...(post.forfeit ? ["Forfeit"] : post.maps.map(mapScore)),
+        ]
           .filter((part) => part !== null)
           .join(" · "),
         color: ACCENT_COLOR,
         fields: [
-          ...teamColumns(post.team1),
-          ...teamColumns(post.team2),
+          ...teamColumns(post.team1, post.forfeit),
+          ...teamColumns(post.team2, post.forfeit),
           ...standingsColumns(post.standings),
         ],
         footer: { text: post.tournamentName },
@@ -159,7 +168,11 @@ export function matchPostOf(
       roundsByMap: scored.maps.map((map) =>
         index === 0 ? map.team1Rounds : map.team2Rounds,
       ),
-      score: index === 0 ? match.score1 : match.score2,
+      score: seriesScoreLabel(
+        index === 0 ? match.score1 : match.score2,
+        index === 0 ? 1 : 2,
+        match.forfeitWinner,
+      ),
       picks: (picksByTeam[index] ?? []).map((pick) => ({
         ...namedPickOf(pick.pickable),
         stats: pick.playerStatTotals,
@@ -177,6 +190,7 @@ export function matchPostOf(
     tournamentName: tournament.name,
     stageName: stage?.stage.name ?? null,
     vlrMatchUrl: matchOverviewUrl(match.vlrId),
+    forfeit: match.forfeitWinner !== null,
     maps: scored.maps,
     team1: postedTeamOf(0),
     team2: postedTeamOf(1),

@@ -116,4 +116,19 @@ describe("parseMatchPages", () => {
       "Bind",
     ]);
   });
+
+  test("a forfeit is final with no maps, won by the side that didn't forfeit", () => {
+    const page = parseFixture(
+      "match-784786-forfeit-overview.html",
+      "match-784786-forfeit-performance.html",
+    );
+    expect(page).toMatchObject({
+      team1VlrId: "18054",
+      team2VlrId: "23727",
+      bestOf: 3,
+      status: "completed",
+      forfeitWinner: 2,
+      finishedMaps: [],
+    });
+  });
 });

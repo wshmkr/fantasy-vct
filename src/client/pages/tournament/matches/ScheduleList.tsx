@@ -15,6 +15,7 @@ import {
   isSelectable,
   matchWinner,
   type ScheduleDay,
+  sideScoreLabel,
 } from "./matchView";
 
 function alertLabelOf(match: MatchSummary) {
@@ -23,11 +24,13 @@ function alertLabelOf(match: MatchSummary) {
 
 function TeamLine({
   team,
+  score,
   dimmed,
   hasScore,
   members,
 }: {
   team: MatchTeamSummary | null;
+  score: number | string | null;
   dimmed: boolean;
   hasScore: boolean;
   members: TournamentMember[];
@@ -62,7 +65,7 @@ function TeamLine({
       <Typography
         variant="stat"
         sx={{
-          width: 16,
+          minWidth: 16,
           flex: "none",
           textAlign: "right",
           fontSize: 15,
@@ -70,7 +73,7 @@ function TeamLine({
           color: hasScore && !dimmed ? "var(--ink)" : "var(--ink-muted)",
         }}
       >
-        {team?.score ?? "–"}
+        {score ?? "–"}
       </Typography>
     </Box>
   );
@@ -166,12 +169,14 @@ function ScheduleRow({
       >
         <TeamLine
           team={match.team1}
+          score={sideScoreLabel(match, 1)}
           dimmed={winner === 2}
           hasScore={hasScore}
           members={members}
         />
         <TeamLine
           team={match.team2}
+          score={sideScoreLabel(match, 2)}
           dimmed={winner === 1}
           hasScore={hasScore}
           members={members}

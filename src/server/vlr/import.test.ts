@@ -13,11 +13,7 @@ import {
 } from "../db/schema.js";
 import { createFakeVlr, FIXTURE_EVENT_URL } from "./fake-vlr.js";
 import { DEFAULT_PLAYER_PICTURE_URL } from "./images.js";
-import {
-  detectSwissStages,
-  importEvent,
-  reimportTournament,
-} from "./import.js";
+import { importEvent, reimportTournament } from "./import.js";
 
 const EVENT_URL = FIXTURE_EVENT_URL;
 const PICKABLE_COUNT = 91 + 16;
@@ -279,27 +275,5 @@ describe("importEvent", () => {
         and(eq(stagePool.stageId, playoffs.id), eq(stagePool.removed, true)),
       ),
     ).toBe(PICKABLE_COUNT);
-  });
-
-  test("marks a stage named Swiss as Swiss, with the wins to advance from its team count", () => {
-    const swissName = [{ key: "6020", name: "Swiss Stage" }];
-    db.transaction((tx) => detectSwissStages(tx, tournamentId, swissName));
-
-    expect(
-      db
-        .select({ format: stages.format, swissWins: stages.swissWins })
-        .from(stages)
-        .orderBy(stages.position)
-        .all(),
-    ).toEqual([
-      { format: "swiss", swissWins: 3 },
-      { format: "standard", swissWins: null },
-    ]);
-
-    db.update(stages).set({ format: "standard" }).run();
-    db.transaction((tx) => detectSwissStages(tx, tournamentId, swissName));
-    expect(
-      db.select({ format: stages.format }).from(stages).all(),
-    ).not.toContainEqual({ format: "swiss" });
   });
 });

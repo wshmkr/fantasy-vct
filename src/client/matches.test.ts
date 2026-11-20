@@ -15,6 +15,7 @@ function matchesWith(...overrides: Partial<MatchSummary>[]): MatchesResponse {
       scheduledAt: new Date(now + minutes(10)).toISOString(),
       status: "upcoming",
       scrapeStatus: "pending",
+      forfeitWinner: null,
       needsAttention: false,
       mapCount: 0,
       team1: null,

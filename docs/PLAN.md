@@ -32,7 +32,7 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 | Roster | **5 players + 1 coach.** **No roles**: many pros play several roles now, so the app never tracks or enforces them. |
 | Coaches | Each team's head coach is in the draft pool. If VLR lists no coach for a team, create a placeholder named "`<Team name>` Coach" (capital C, for example "Sentinels Coach"). Coaches score from their team's results (scoring table below). |
 | Subs | Subs aren't in the pool. When a sub plays a map in place of one of the team's pool players, the sub's stats for that map count for the player they replaced (§4.5). The app pairs them when it's unambiguous; otherwise the commissioner assigns the sub on the match. |
-| Swiss stages | A team that qualifies early plays fewer series (a 3-0 team plays 3; a 3-2 team plays 5). **Phantom series** even this out: once a team qualifies, each series it didn't need to play counts, for each of its picks (coach included), as that pick's own average series points in the stage. Eliminated teams get nothing for series they didn't play. Brackets and other formats are plain sums. |
+| Swiss stages | Plain sums, like every other format: a pick scores the series its team actually plays. A 3-0 team plays fewer series than a 3-2 team, but losses score close to nothing (players average −3 in a 0-2 and 31 in a 1-2), so the totals come out about even. No adjustment. |
 | Ownership | A player or coach can be on at most one roster per stage. No limit on picks from the same team. |
 | Draft phase | Live snake draft. Order randomized per stage. **6 rounds**: each manager picks 5 players and 1 coach, with the coach in any round. Running out the clock **autopicks a random legal choice**. |
 | Swap phase | After round 6 the snake keeps going. On your turn you either **swap** one of your rostered picks for an available one of the same kind (player for player, coach for coach), or **lock**. A swap ends your turn, and the released pick goes straight back into the pool. Locked managers are skipped. Running out the clock in this phase **locks your roster**. The draft ends when every manager has locked. |
@@ -56,8 +56,9 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 | Clutch won (1v1 to 1v5) | +10 |
 | Sweep (2-0 in a Bo3, 3-0 in a Bo5) | +15 to every player on the winning team, once per series |
 | Coach | **+2 per round** their team wins in the series, plus **+30 per map left unplayed** when their team wins the series. The loser gets no unplayed-map points. Examples: a Bo3 2-0 win scoring 13-8 and 13-9 earns 52 + 30 = 82; a Bo5 3-1 win earns +30 for the unplayed map. |
+| Forfeit (VLR says "forfeited by") | **+80** to every pick on the winning team, players and coach alike, about what a typical win is worth. The forfeiting team gets 0. No other points for that match. |
 
-A pickable's stage points are its points in every match of that stage, regardless of when the draft finished, plus any Swiss phantom series. A finished map counts as soon as it's scraped, even while the series is still live; the sweep bonus and coach points wait for the series to end. A manager's stage total is the sum of their 6 picks. The tournament total is the sum of the stage totals.
+A pickable's stage points are its points in every match of that stage, regardless of when the draft finished. A finished map counts as soon as it's scraped, even while the series is still live; the sweep bonus, coach points and the forfeit bonus wait for the series to end. A manager's stage total is the sum of their 6 picks. The tournament total is the sum of the stage totals.
 
 ### 1.1a Settled with the user (don't propose these again)
 
@@ -79,7 +80,6 @@ A pickable's stage points are its points in every match of that stage, regardles
 - **Multi-kills** (checkpoint 2): only 3K and 4K rounds score; 2K rounds score nothing, and an ace counts only as an ace. Overtime rounds count like any other round. If the Split 1 re-score (package 2.2) doesn't match the spreadsheet, find the reading that reproduces it and report it; don't change the rules silently.
 - **Sweep bonus and subs** (checkpoint 2): the +15 goes to each pool player on the winning team who played at least one map of the series, either themselves or through a sub assigned to them.
 - **Past events** (checkpoint 2): players come from the event page's registered rosters, with the team page as a fallback. Head coaches come from the team's *current* page, so an old event can show today's coach. That's fine; the app is for live events. Stats are keyed by VLR player id, so scoring old matches still works.
-- **Swiss phantom average** (checkpoint 2): a pick's average is its points ÷ the series its team has played in the stage, where a series the pick sat out counts as 0 and only `ok` matches count (a live or unfinished scrape doesn't). The phantom series start counting as soon as the team reaches the wins it needs to advance.
 
 ---
 
@@ -237,7 +237,7 @@ src/shared/
   entities.ts          User, Tournament, Stage, Team, Pickable, RosterEntry, DraftState, MANAGER_COLORS…
   api.ts               API_ROUTES + request/response types
   snake.ts             seatForTurn(turnNo, seatCount)
-  scoring.ts           (cp2) points, coach points, sub pairing, Swiss phantom series: pure functions
+  scoring.ts           (cp2) points, coach points, sub pairing: pure functions
 src/server/
   db/                  schema.ts, client.ts, migrations/, seed-dev.ts
   auth/                discord.ts, dev-login.ts, session.ts, access.ts
@@ -293,7 +293,7 @@ stages             id, tournament_id, name, position,
                    vlr_stage_keys_json (VLR stage keys this stage covers; [] if manual), source: vlr | manual,
                    status: setup | drafting | paused | complete,
                    pick_seconds (default 90), current_turn_no, turn_deadline (nullable ISO), created_at
-                   -- checkpoint 2 adds: format: standard | swiss (default standard), swiss_wins (nullable: wins to advance)
+                   -- checkpoint 2 added format and swiss_wins; package 3.1 drops both
 stage_managers     stage_id, user_id, seat, locked_at (nullable)            PK(stage_id, user_id), unique(stage_id, seat)
 stage_pool         stage_id, pickable_id, removed (bool)
 roster_entries     stage_id, user_id, pickable_id                          unique(stage_id, pickable_id)
@@ -307,6 +307,7 @@ matches            id, tournament_id, vlr_id (unique), stage_key, team1_id (null
                    -- checkpoint 2 adds: scrape_status: pending | ok | failed (default pending),
                    --   scrape_error (nullable), scraped_at (nullable, last successful save),
                    --   checked_at (nullable, last attempt)
+                   -- package 3.1 adds: forfeit_winner (nullable: 1 | 2)
                    -- checkpoint 3 adds: recap_posted_at
 -- checkpoint 2
 match_maps         match_id, map_no, map_name, team1_rounds, team2_rounds              PK(match_id, map_no)
@@ -469,7 +470,9 @@ Pasting an event link runs the whole import, with a progress indicator. There's 
    - no negative numbers
    - once the match is completed: the maps won equal the series score
 4. **Save in one transaction:** replace the match's `match_maps` and `player_map_stats` rows with the finished maps, set `scraped_at`, and set `scrape_status = ok` only if the match is completed and passed every check. Otherwise it stays `pending` and gets checked again in 15 minutes.
-5. **On a fetch, parse or check error:** keep the rows already saved, set `scrape_status = failed` and `scrape_error`. A failed match stays due for 24 hours after `scheduled_at`, so it retries every 15 minutes and clears itself if VLR fixes the page. After that only a manual Sync retries it, so a page VLR never fills in (a forfeit) doesn't keep fetching forever; the commissioner marks it `ok` in the DB.
+5. **On a fetch, parse or check error:** keep the rows already saved, set `scrape_status = failed` and `scrape_error`. A failed match stays due for 24 hours after `scheduled_at`, so it retries every 15 minutes and clears itself if VLR fixes the page. After that only a manual Sync retries it, so a page VLR never fills in doesn't keep fetching forever; the commissioner marks it `ok` in the DB.
+
+**Forfeits.** On the match page VLR replaces the "final" note with "forfeited by `<team>`", keeps a plain score (often 0:0) and marks the other side's score as the winner's. The matches list shows only a completed match, usually 0-0. A "forfeited by" match is final with no maps: save `forfeit_winner` (1 or 2, the side that didn't forfeit), no map rows, and `scrape_status = ok`. Skip the maps-equal-score check for it. Parse this from a saved real forfeit page; don't guess the markup. It scores only the forfeit bonus (§1.1).
 6. Always set `checked_at`.
 
 More rules:
@@ -501,17 +504,13 @@ More rules:
   ```
   2 × (rounds their team won, across every map) + 30 × (best_of − maps played), the second part only if their team won the series
   ```
+- **A forfeit:** +80 to each player and the coach of the winning team (every one of its pickables, rostered or not), 0 to the other side. Nothing else for that match: no sweep bonus, no coach formula.
   Only once the match is `completed`; before that the coach has 0 for it. It reads the coach's team from `pickables.team_id`.
 - A **stage** includes the matches whose `stage_key` is in that stage's `vlr_stage_keys_json`.
-- **Swiss phantom series:**
-  - **Detecting Swiss:** import and sync set `format = swiss` on stages whose VLR name contains "Swiss" (case-insensitive). They also set `swiss_wins = log2(distinct teams in the stage's matches) − 1`, so 16 teams need 3 wins and 8 teams need 2. Both can be corrected in Drizzle Studio.
-  - **The count:** once a team has `swiss_wins` wins in the stage, it gets `2 × swiss_wins − 1 − series played` phantom series. A 3-0 team gets 2, a 3-1 team gets 1, and a 3-2 team gets 0. Eliminated teams get none.
-  - **The value:** each phantom series is worth the pick's own average series points in that stage (§1.2), for players and coaches alike.
-  - **On screen:** phantom points are included in pick and manager totals in standings, Teams and the pool. They don't appear in the Matches tab, which only shows real matches. There's no separate UI.
 - **Standings:** a manager's points in a stage are the sum of their `roster_entries` picks' points over that stage's matches. The total is the sum over stages. Rank by points, then by best single pick in that scope, then by display name.
 
 **API:**
-- `GET /api/tournaments/:id/standings`: per manager, the total, the per-stage totals, and per stage each roster entry with its points (sub credit and phantom series included)
+- `GET /api/tournaments/:id/standings`: per manager, the total, the per-stage totals, and per stage each roster entry with its points (sub credit and forfeit bonuses included)
 - `GET /api/tournaments/:id/matches`: the schedule with scores, `scrape_status` and a `needsAttention` flag (failed or unassigned subs), plus which managers have picks in each match
 - `GET /api/matches/:id`: the maps, and per team its players and coach with series stat totals, points, owner (in that match's stage), and subs with their assignment
 - the teams and draft-pool payloads gain each pickable's tournament points
@@ -1039,6 +1038,22 @@ Packages run in order unless marked **‖ parallel-safe**. Each one goes through
 - Discord webhooks: match recaps, daily standings and scrape-failure alerts. Ask the user for the webhook URL.
 - Deploy to Fly.io with a volume and nightly backups. **Ask before deploying.**
 
+**3.1 Forfeits, and drop Swiss phantom series.** Covers the §1.1 *Swiss stages* and *Forfeit* rows, and §4.5 *Forfeits*.
+- **Forfeits:**
+  - Find a real forfeit on VLR (a match page saying "forfeited by"), and commit its matches-list entry and match page(s) as fixtures, under §2.5.
+  - Migration adding `matches.forfeit_winner`. The match parser reads "forfeited by"; the sync saves a forfeit as `ok` with no maps instead of failing.
+  - Scoring: add a `forfeitWin` config key (default 80).
+  - Matches tab: a forfeit row shows `FF` for the forfeiting side and the winner bright; its detail says "Forfeit" instead of maps. Discord match posts say the same.
+- **Drop Swiss phantom series:** delete `swissPhantomPoints`, its tests and callers, Swiss detection on import and sync, and the `stages.format` and `swiss_wins` columns (migration).
+- Scoring otherwise stays as built: the +15 sweep bonus and the coach formula are unchanged.
+
+*Tests:*
+- a Bo3 forfeit win → +80 for each player and the coach of the winner, including unrostered and benched ones; the forfeiting side → 0; no sweep bonus or coach formula on top
+- the forfeit fixture parses to `forfeit_winner` and no maps, and the sync sets it `ok`
+- a Swiss stage scores as a plain sum
+
+*Accept:* the tests pass, and on the dev DB a forfeit (from the fixture, if the current event has none) shows correctly on the Matches tab and in standings. Report how many points dropping phantom series moved for each manager in the current tournament. Don't deploy without asking.
+
 ### Out of scope
 
 - mobile layouts
@@ -1047,7 +1062,7 @@ Packages run in order unless marked **‖ parallel-safe**. Each one goes through
 - team tags
 - trades between managers
 - Discord draft pings and bot commands
-- live in-match scoring
+- scoring a map while it's still being played (finished maps of a live series do count, §4.5)
 - public leagues
 - multiple commissioners
 
@@ -1082,3 +1097,4 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] Checkpoint 2 gate, report and re-planning notes (demo steps 2–10 passed 2026-11-19; step 1 re-score: mada/Reduxx differ from the sheet, see report) → **stop here**
 - [x] Fix: stop auto-retrying matches a day after kickoff (commit ee65da1)
 - [x] 3. Fly.io deploy only, Discord webhooks and extra jobs deferred (commits 70698e6, cba15c8; live at https://fantasy-vct.fly.dev in ewr, 2026-11-20)
+- [ ] 3.1 Forfeits, and drop Swiss phantom series

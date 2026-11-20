@@ -14,7 +14,6 @@ import {
   MATCH_STATUSES,
   PICKABLE_KINDS,
   SCRAPE_STATUSES,
-  STAGE_FORMATS,
   STAGE_SOURCES,
   STAGE_STATUSES,
   type TopAgent,
@@ -168,8 +167,6 @@ export const stages = sqliteTable("stages", {
   currentTurnNo: integer("current_turn_no").notNull().default(0),
   turnDeadline: text("turn_deadline"),
   createdAt: createdAt("created_at"),
-  format: text("format", { enum: STAGE_FORMATS }).notNull().default("standard"),
-  swissWins: integer("swiss_wins"),
   discordPostedAt: text("discord_posted_at"),
   discordResultsPostedAt: text("discord_results_posted_at"),
 });
@@ -256,6 +253,7 @@ export const matches = sqliteTable("matches", {
     .notNull()
     .default("pending"),
   scrapeError: text("scrape_error"),
+  forfeitWinner: integer("forfeit_winner").$type<1 | 2>(),
   scrapedAt: text("scraped_at"),
   checkedAt: text("checked_at"),
   discordPostedAt: text("discord_posted_at"),

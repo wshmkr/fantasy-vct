@@ -225,6 +225,30 @@ describe("scraping matches", () => {
     expect(countOf(playerMapStats, match.id)).toBe(20);
   });
 
+  test("a forfeit saves its winner and no maps, and turns ok", async () => {
+    for (const vlrId of ["18054", "23727"]) {
+      teamIdByVlrId.set(
+        vlrId,
+        db.insert(teams).values({ vlrId, name: vlrId }).returning().get().id,
+      );
+    }
+    const match = insertMatch("784786");
+
+    await scrapeMatch(match.id, { db, download: fakeVlr.download, now });
+
+    expect(matchRow(match.id)).toMatchObject({
+      bestOf: 3,
+      status: "completed",
+      team1Id: teamIdByVlrId.get("18054"),
+      team2Id: teamIdByVlrId.get("23727"),
+      forfeitWinner: 2,
+      scrapeStatus: "ok",
+      scrapeError: null,
+    });
+    expect(countOf(matchMaps, match.id)).toBe(0);
+    expect(countOf(playerMapStats, match.id)).toBe(0);
+  });
+
   test("a live match saves only its finished maps and stays pending", async () => {
     const match = insertMatch("314929", { status: "live" });
 

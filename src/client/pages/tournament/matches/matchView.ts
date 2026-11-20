@@ -6,7 +6,11 @@ import type {
   MatchTeamDetail,
 } from "@shared/api";
 import type { MatchStatus, Stage } from "@shared/entities";
-import { addStatLines, type MapStatLine } from "@shared/scoring";
+import {
+  addStatLines,
+  type MapStatLine,
+  seriesScoreLabel,
+} from "@shared/scoring";
 
 export interface ScheduleDay {
   key: string;
@@ -89,15 +93,26 @@ export function winnerSide(
   return team1Score > team2Score ? 1 : 2;
 }
 
-// Only a completed series has a winner; a live one's lead can still flip.
-export function matchWinner(match: {
+interface ScoredMatchView {
   status: MatchStatus;
+  forfeitWinner: 1 | 2 | null;
   team1: MatchTeamBase | null;
   team2: MatchTeamBase | null;
-}) {
+}
+
+// Only a completed series has a winner; a live one's lead can still flip.
+export function matchWinner(match: ScoredMatchView) {
+  if (match.forfeitWinner !== null) return match.forfeitWinner;
   if (match.status !== "completed") return null;
   return winnerSide(match.team1?.score ?? null, match.team2?.score ?? null);
 }
+
+export const sideScoreLabel = (match: ScoredMatchView, side: 1 | 2) =>
+  seriesScoreLabel(
+    (side === 1 ? match.team1 : match.team2)?.score ?? null,
+    side,
+    match.forfeitWinner,
+  );
 
 // Subs credited to the same player across maps merge into one row; unassigned ones stay per map.
 export interface SubRow {
