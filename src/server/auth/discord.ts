@@ -87,6 +87,9 @@ export function createDiscordRouter(clientId: string, clientSecret: string) {
     const expectedState = readCookie(req, STATE_COOKIE);
     res.clearCookie(STATE_COOKIE, baseCookieOptions);
     if (typeof code !== "string" || !expectedState || state !== expectedState) {
+      console.warn(
+        `Discord login: ${expectedState ? "state mismatch" : "no state cookie"}`,
+      );
       res.redirect("/login");
       return;
     }
@@ -95,13 +98,15 @@ export function createDiscordRouter(clientId: string, clientSecret: string) {
     try {
       const tokens = await discord.validateAuthorizationCode(code, null);
       profile = await fetchDiscordProfile(tokens.accessToken());
-    } catch {
+    } catch (error) {
       // A refreshed callback reuses a spent code; send them back to try again.
+      console.warn("Discord login: code exchange failed", error);
       res.redirect("/login");
       return;
     }
     const userId = bindDiscordUser(profile);
     if (userId === null) {
+      console.warn(`Discord login: ${profile.username} isn't a member`);
       res.redirect(`/login?denied=${encodeURIComponent(profile.username)}`);
       return;
     }
