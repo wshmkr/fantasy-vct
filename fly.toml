@@ -1,5 +1,5 @@
 app = "fantasy-vct"
-primary_region = "nrt"
+primary_region = "ewr"
 
 [env]
   NODE_ENV = "production"
