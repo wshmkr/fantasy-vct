@@ -5,7 +5,8 @@ import { useEffect } from "react";
 import { apiClient } from "./apiClient";
 import { tournamentQueryKey } from "./tournaments";
 
-const draftQueryKey = (stageId: number) => ["draft", stageId];
+export const DRAFT_QUERY_KEY = ["draft"];
+const draftQueryKey = (stageId: number) => [...DRAFT_QUERY_KEY, stageId];
 
 export function useDraft(stageId: number) {
   return useQuery({

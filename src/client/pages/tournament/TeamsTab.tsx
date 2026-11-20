@@ -3,12 +3,15 @@ import InputBase from "@mui/material/InputBase";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { TeamWithPickables } from "@shared/entities";
-import { Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { useState } from "react";
 import Pane from "../../components/Pane";
 import PlayerChip from "../../components/PlayerChip";
+import SmallIconButton from "../../components/SmallIconButton";
 import TeamLogo from "../../components/TeamLogo";
 import { useTournamentTeams } from "../../tournaments";
+import { useMe } from "../../useMe";
+import TeamRosterDialog from "./TeamRosterDialog";
 
 function matchesSearch(team: TeamWithPickables, search: string) {
   const needle = search.trim().toLowerCase();
@@ -17,7 +20,13 @@ function matchesSearch(team: TeamWithPickables, search: string) {
   );
 }
 
-function TeamCard({ team }: { team: TeamWithPickables }) {
+function TeamCard({
+  team,
+  onEdit,
+}: {
+  team: TeamWithPickables;
+  onEdit: (() => void) | null;
+}) {
   return (
     <Pane
       component="section"
@@ -32,10 +41,15 @@ function TeamCard({ team }: { team: TeamWithPickables }) {
           variant="bodyStrong"
           component="h2"
           noWrap
-          sx={{ fontSize: 15 }}
+          sx={{ fontSize: 15, flex: 1 }}
         >
           {team.name}
         </Typography>
+        {onEdit && (
+          <SmallIconButton label={`Edit ${team.name} roster`} onClick={onEdit}>
+            <Pencil size={13} />
+          </SmallIconButton>
+        )}
       </Box>
       <Box
         sx={{
@@ -60,7 +74,10 @@ function TeamCard({ team }: { team: TeamWithPickables }) {
 
 export default function TeamsTab({ tournamentId }: { tournamentId: number }) {
   const teams = useTournamentTeams(tournamentId);
+  const isCommissioner = useMe().data?.role === "commissioner";
   const [search, setSearch] = useState("");
+  const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
+  const editingTeam = teams.data?.find((team) => team.id === editingTeamId);
   const shownTeams = (teams.data ?? []).filter((team) =>
     matchesSearch(team, search),
   );
@@ -101,9 +118,19 @@ export default function TeamsTab({ tournamentId }: { tournamentId: number }) {
         }}
       >
         {shownTeams.map((team) => (
-          <TeamCard key={team.id} team={team} />
+          <TeamCard
+            key={team.id}
+            team={team}
+            onEdit={isCommissioner ? () => setEditingTeamId(team.id) : null}
+          />
         ))}
       </Box>
+      {editingTeam && (
+        <TeamRosterDialog
+          team={editingTeam}
+          onClose={() => setEditingTeamId(null)}
+        />
+      )}
     </Box>
   );
 }

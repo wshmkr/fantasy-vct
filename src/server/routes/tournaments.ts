@@ -236,7 +236,9 @@ tournamentsRouter.get(
       .select({ pickable: pickables })
       .from(tournamentTeams)
       .innerJoin(pickables, eq(pickables.teamId, tournamentTeams.teamId))
-      .where(eq(tournamentTeams.tournamentId, id))
+      .where(
+        and(eq(tournamentTeams.tournamentId, id), eq(pickables.onRoster, true)),
+      )
       .orderBy(desc(pickables.kind), asc(pickables.id))
       .all()
       .map(({ pickable }) => toScoredPickable(pickable, scores));

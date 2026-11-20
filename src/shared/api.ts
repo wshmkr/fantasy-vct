@@ -6,6 +6,7 @@ import {
   type ManagerColor,
   type MatchStatus,
   MIN_PICK_SECONDS,
+  PICKABLE_KINDS,
   type Pickable,
   type ScrapeStatus,
   type Team,
@@ -54,6 +55,9 @@ export const API_ROUTES = {
     `/api/tournaments/${tournamentId}/matches`,
   match: (matchId: Id) => `/api/matches/${matchId}`,
   matchSubs: (matchId: Id) => `/api/matches/${matchId}/subs`,
+  teamRoster: (teamId: Id) => `/api/teams/${teamId}/roster`,
+  teamRosterEntry: (teamId: Id, pickableId: Id) =>
+    `/api/teams/${teamId}/roster/${pickableId}`,
   stage: (stageId: Id) => `/api/stages/${stageId}`,
   stagePool: (stageId: Id) => `/api/stages/${stageId}/pool`,
   stagePoolEntry: (stageId: Id, pickableId: Id) =>
@@ -98,6 +102,22 @@ export const createTournamentBodySchema = z.object({
     }),
 });
 export type CreateTournamentBody = z.input<typeof createTournamentBodySchema>;
+
+const VLR_PLAYER_URL =
+  /^(?:https?:\/\/)?(?:www\.)?vlr\.gg\/player\/(\d+)(\/[^/?#\s]+)?/;
+
+export const addRosterEntryBodySchema = z.object({
+  vlrPlayerUrl: z
+    .string()
+    .trim()
+    .regex(VLR_PLAYER_URL)
+    .transform((url) => {
+      const [, vlrId = "", slug = ""] = VLR_PLAYER_URL.exec(url) ?? [];
+      return { vlrId, vlrUrl: `https://www.vlr.gg/player/${vlrId}${slug}` };
+    }),
+  kind: z.enum(PICKABLE_KINDS),
+});
+export type AddRosterEntryBody = z.input<typeof addRosterEntryBodySchema>;
 
 export const updateTournamentBodySchema = z.object({
   joiningOpen: z.boolean().optional(),

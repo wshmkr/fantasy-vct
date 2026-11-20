@@ -1,6 +1,10 @@
 import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import type { ImportProgress, TopAgent } from "../../shared/entities.js";
+import type {
+  ImportProgress,
+  PickableKind,
+  TopAgent,
+} from "../../shared/entities.js";
 import { db as appDb, type Db } from "../db/client.js";
 import {
   matches,
@@ -46,6 +50,8 @@ export interface ImportOptions {
   db?: Db;
   download?: Downloader;
 }
+
+type PersonLink = Omit<ParsedPerson, "handle"> & { handle?: string };
 
 interface ScrapedPerson extends ParsedPerson {
   photoImageId: number;
@@ -138,19 +144,11 @@ async function scrapeEvent(
     0,
   );
   let peopleDone = 0;
-  const scrapePerson = async (person: ParsedPerson, isPlayer: boolean) => {
-    const page = parsePlayerPage(
-      await fetchPage(
-        source,
-        isPlayer ? playerFormUrl(person.vlrUrl) : person.vlrUrl,
-      ),
-    );
-    const scraped: ScrapedPerson = {
-      ...person,
-      photoImageId: await storeImage(source, page.photoUrl),
-      topAgents: isPlayer ? await storeAgentIcons(source, page.topAgents) : [],
-      form: isPlayer ? page.form : null,
-    };
+  const scrapeWithProgress = async (
+    person: ParsedPerson,
+    kind: PickableKind,
+  ) => {
+    const scraped = await scrapePerson(source, person, kind);
     peopleDone += 1;
     onProgress({ phase: "players", done: peopleDone, total: personCount });
     return scraped;
@@ -160,13 +158,15 @@ async function scrapeEvent(
   for (const { team, players, headCoach } of rosters) {
     const scrapedPlayers = [];
     for (const player of players) {
-      scrapedPlayers.push(await scrapePerson(player, true));
+      scrapedPlayers.push(await scrapeWithProgress(player, "player"));
     }
     scrapedTeams.push({
       ...team,
       logoImageId: team.logoUrl ? await storeImage(source, team.logoUrl) : null,
       players: scrapedPlayers,
-      headCoach: headCoach ? await scrapePerson(headCoach, false) : null,
+      headCoach: headCoach
+        ? await scrapeWithProgress(headCoach, "coach")
+        : null,
     });
   }
 
@@ -184,6 +184,29 @@ async function scrapeEvent(
   };
 }
 
+export async function scrapePerson(
+  source: VlrSource,
+  person: PersonLink,
+  kind: PickableKind,
+): Promise<ScrapedPerson> {
+  const isPlayer = kind === "player";
+  const page = parsePlayerPage(
+    await fetchPage(
+      source,
+      isPlayer ? playerFormUrl(person.vlrUrl) : person.vlrUrl,
+    ),
+  );
+  const handle = person.handle ?? page.handle;
+  if (!handle) throw new Error(`No player name on ${person.vlrUrl}`);
+  return {
+    ...person,
+    handle,
+    photoImageId: await storeImage(source, page.photoUrl),
+    topAgents: isPlayer ? await storeAgentIcons(source, page.topAgents) : [],
+    form: isPlayer ? page.form : null,
+  };
+}
+
 async function storeAgentIcons(
   source: VlrSource,
   agents: ParsedAgent[],
@@ -198,7 +221,7 @@ async function storeAgentIcons(
   return stored;
 }
 
-type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 function saveEvent(
   tx: Transaction,
@@ -221,7 +244,6 @@ function saveEvent(
     .get().id;
 
   const teamIdByName = new Map<string, number>();
-  const rosterIdsByTeamId = new Map<number, number[]>();
   for (const team of event.teams) {
     const teamId = tx
       .insert(teams)
@@ -241,16 +263,29 @@ function saveEvent(
       .onConflictDoNothing()
       .run();
     teamIdByName.set(team.name, teamId);
-    rosterIdsByTeamId.set(teamId, [
-      ...team.players.map((player) => savePerson(tx, teamId, "player", player)),
-      team.headCoach
+    const coachId =
+      manuallySetCoachId(tx, teamId) ??
+      (team.headCoach
         ? savePerson(tx, teamId, "coach", team.headCoach)
-        : savePlaceholderCoach(tx, teamId, team.name, event.defaultPictureId),
-    ]);
+        : savePlaceholderCoach(tx, teamId, team.name, event.defaultPictureId));
+    const rosterIds = [
+      ...team.players.map((player) => savePerson(tx, teamId, "player", player)),
+      coachId,
+    ];
+    tx.update(pickables)
+      .set({ onRoster: false })
+      .where(
+        and(
+          eq(pickables.teamId, teamId),
+          eq(pickables.rosterSetManually, false),
+          notInArray(pickables.id, rosterIds),
+        ),
+      )
+      .run();
   }
 
   saveScheduleAndStages(tx, tournamentId, event, teamIdByName);
-  seedSetupPools(tx, tournamentId, rosterIdsByTeamId);
+  reseedSetupPools(tx, tournamentId);
   return tournamentId;
 }
 
@@ -351,11 +386,16 @@ export function detectSwissStages(
   }
 }
 
-function savePerson(
+// A commissioner's roster edit outranks VLR, so imports keep that pickable's team and roster status.
+const unlessSetManually = (column: AnySQLiteColumn, importedValue: unknown) =>
+  sql`case when ${pickables.rosterSetManually} then ${column} else ${importedValue} end`;
+
+export function savePerson(
   tx: Transaction,
   teamId: number,
-  kind: "player" | "coach",
+  kind: PickableKind,
   person: ScrapedPerson,
+  { setManually = false } = {},
 ): number {
   const values = {
     kind,
@@ -369,13 +409,40 @@ function savePerson(
     formKd: person.form?.kd ?? null,
     formRounds: person.form?.rounds ?? null,
     formFetchedAt: kind === "player" ? new Date().toISOString() : null,
+    onRoster: true,
   };
   return tx
     .insert(pickables)
-    .values({ vlrId: person.vlrId, ...values })
-    .onConflictDoUpdate({ target: pickables.vlrId, set: values })
+    .values({ vlrId: person.vlrId, ...values, rosterSetManually: setManually })
+    .onConflictDoUpdate({
+      target: pickables.vlrId,
+      set: setManually
+        ? { ...values, rosterSetManually: true }
+        : {
+            ...values,
+            kind: unlessSetManually(pickables.kind, kind),
+            teamId: unlessSetManually(pickables.teamId, teamId),
+            onRoster: unlessSetManually(pickables.onRoster, 1),
+          },
+    })
     .returning({ id: pickables.id })
     .get().id;
+}
+
+// A coach the commissioner picked stays the team's only coach, whatever VLR lists.
+function manuallySetCoachId(tx: Transaction, teamId: number) {
+  return tx
+    .select({ id: pickables.id })
+    .from(pickables)
+    .where(
+      and(
+        eq(pickables.teamId, teamId),
+        eq(pickables.kind, "coach"),
+        eq(pickables.onRoster, true),
+        eq(pickables.rosterSetManually, true),
+      ),
+    )
+    .get()?.id;
 }
 
 function savePlaceholderCoach(
@@ -389,7 +456,18 @@ function savePlaceholderCoach(
     .from(pickables)
     .where(and(eq(pickables.teamId, teamId), eq(pickables.isPlaceholder, true)))
     .get();
-  if (existing) return existing.id;
+  if (existing) {
+    tx.update(pickables)
+      .set({ onRoster: true })
+      .where(
+        and(
+          eq(pickables.id, existing.id),
+          eq(pickables.rosterSetManually, false),
+        ),
+      )
+      .run();
+    return existing.id;
+  }
   return tx
     .insert(pickables)
     .values({
@@ -449,11 +527,7 @@ function addNewStages(
 }
 
 // A stage's pool is the rosters of the teams in its matches, or every team while any slot is TBD.
-function seedSetupPools(
-  tx: Transaction,
-  tournamentId: number,
-  rosterIdsByTeamId: Map<number, number[]>,
-) {
+export function reseedSetupPools(tx: Transaction, tournamentId: number) {
   const setupStages = tx
     .select({ id: stages.id, keys: stages.vlrStageKeysJson })
     .from(stages)
@@ -465,6 +539,26 @@ function seedSetupPools(
       ),
     )
     .all();
+  const rosterIdsByTeamId = new Map<number, number[]>(
+    tx
+      .select({ teamId: tournamentTeams.teamId })
+      .from(tournamentTeams)
+      .where(eq(tournamentTeams.tournamentId, tournamentId))
+      .all()
+      .map(({ teamId }) => [teamId, []]),
+  );
+  for (const { id, teamId } of tx
+    .select({ id: pickables.id, teamId: pickables.teamId })
+    .from(pickables)
+    .where(
+      and(
+        inArray(pickables.teamId, [...rosterIdsByTeamId.keys()]),
+        eq(pickables.onRoster, true),
+      ),
+    )
+    .all()) {
+    rosterIdsByTeamId.get(teamId)?.push(id);
+  }
   const allTeamIds = [...rosterIdsByTeamId.keys()];
 
   for (const stage of setupStages) {

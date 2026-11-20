@@ -107,6 +107,12 @@ export const pickables = sqliteTable("pickables", {
   isPlaceholder: integer("is_placeholder", { mode: "boolean" })
     .notNull()
     .default(false),
+  // Off-roster pickables keep their team so past points still credit it.
+  onRoster: integer("on_roster", { mode: "boolean" }).notNull().default(true),
+  // Set by the commissioner's roster edits; imports then leave team and onRoster alone.
+  rosterSetManually: integer("roster_set_manually", { mode: "boolean" })
+    .notNull()
+    .default(false),
   vlrUrl: text("vlr_url"),
   photoImageId: integer("photo_image_id")
     .notNull()

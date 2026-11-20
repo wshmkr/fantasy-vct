@@ -7,6 +7,7 @@ const fixture = (name: string) =>
 
 test("reads the photo, top agents and form of a player with a photo", () => {
   expect(parsePlayerPage(fixture("player-31377-photo.html"))).toEqual({
+    handle: "allthewayPat",
     photoUrl: "https://owcdn.net/img/6acd26a4ae18d.png",
     topAgents: [
       {
@@ -45,6 +46,7 @@ test("weights form by rounds over all agents, keeping the top 3 by usage", () =>
 
 test("a coach page has a picture but no agents or form", () => {
   expect(parsePlayerPage(fixture("coach-57984.html"))).toEqual({
+    handle: "Lecadi",
     photoUrl: "https://www.vlr.gg/img/base/ph/sil.png",
     topAgents: [],
     form: null,

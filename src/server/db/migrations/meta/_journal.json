@@ -15,6 +15,13 @@
       "when": 1795065825658,
       "tag": "0001_match_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795140047904,
+      "tag": "0002_manual_rosters",
+      "breakpoints": true
     }
   ]
 }

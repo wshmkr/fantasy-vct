@@ -19,6 +19,7 @@ export interface FormStats {
 }
 
 export interface ParsedPlayerPage {
+  handle: string;
   photoUrl: string;
   topAgents: ParsedAgent[];
   form: FormStats | null;
@@ -48,6 +49,7 @@ export function parsePlayerPage(html: string): ParsedPlayerPage {
   const rows = $("#st-table").length ? parseAgentRows($) : [];
 
   return {
+    handle: $(".player-header h1.wf-title").text().trim(),
     photoUrl: absoluteVlrUrl(photoSrc),
     topAgents: rows
       .toSorted((a, b) => b.mapsPlayed - a.mapsPlayed)

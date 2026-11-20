@@ -11,6 +11,7 @@ import { imagesRouter } from "./routes/images.js";
 import { importsRouter } from "./routes/imports.js";
 import { matchesRouter } from "./routes/matches.js";
 import { membersRouter } from "./routes/members.js";
+import { rostersRouter } from "./routes/rosters.js";
 import { stagesRouter } from "./routes/stages.js";
 import { standingsRouter } from "./routes/standings.js";
 import { tournamentsRouter } from "./routes/tournaments.js";
@@ -47,6 +48,7 @@ apiRouter.get("/me", requireUser, (_req, res: Response<User>) => {
 
 apiRouter.use(membersRouter);
 apiRouter.use(tournamentsRouter);
+apiRouter.use(rostersRouter);
 apiRouter.use(stagesRouter);
 apiRouter.use(draftRouter);
 apiRouter.use(matchesRouter);
