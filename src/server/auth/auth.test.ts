@@ -52,14 +52,16 @@ describe("dev login and sessions", () => {
 describe("Discord OAuth", () => {
   let discordProfile: DiscordProfile;
   const discord = setupServer(
-    http.post("https://discord.com/api/oauth2/token", () =>
-      HttpResponse.json({
-        access_token: "discord-access-token",
-        token_type: "Bearer",
-        expires_in: 604800,
-        refresh_token: "discord-refresh-token",
-        scope: "identify",
-      }),
+    http.post("https://discord.com/api/oauth2/token", async ({ request }) =>
+      (await request.formData()).get("code") !== "auth-code"
+        ? new HttpResponse(null, { status: 400 })
+        : HttpResponse.json({
+            access_token: "discord-access-token",
+            token_type: "Bearer",
+            expires_in: 604800,
+            refresh_token: "discord-refresh-token",
+            scope: "identify",
+          }),
     ),
     http.get("https://discord.com/api/users/@me", ({ request }) =>
       request.headers.get("Authorization") === "Bearer discord-access-token"

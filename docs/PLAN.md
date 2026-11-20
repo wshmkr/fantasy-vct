@@ -219,7 +219,7 @@ Don't run `.github/bootstrap.sh` (it needs a GitHub remote). The template's `.gi
 | Need | Choice |
 |---|---|
 | Database | SQLite through `better-sqlite3` + `drizzle-orm` (+ `drizzle-kit` for migrations). File at `DATABASE_PATH`, default `./data/app.db`. |
-| Discord OAuth | [`arctic`](https://arcticjs.dev) (small OAuth 2.0 client: builds the authorize URL, `state`, code exchange). No auth framework; see §4.3 for why. |
+| Discord OAuth | Plain `fetch` (authorize URL, `state`, code exchange; about 20 lines). Not `arctic`: its hand-set `Content-Length` is rejected by the undici 7 dispatcher cheerio installs. No auth framework; see §4.3 for why. |
 | Sessions | Signed, httpOnly, `SameSite=Lax` cookie holding the user id (HMAC with `SESSION_SECRET`, 30-day expiry). On every request, check the user still has access. No sessions table. |
 | Migrations | `drizzle-kit generate` produces SQL migration files under `src/server/db/migrations/`; the server applies pending ones on boot with Drizzle's `migrate()`. Never use `drizzle-kit push`, and never edit a migration that's already merged; add a new one. Commit everything drizzle-kit writes: the `.sql` files and `meta/` (journal and snapshots). |
 | Validation | `zod` schemas in `src/shared` for every request body, used by both the server and the client. |
@@ -385,9 +385,9 @@ Timers aren't rebuilt after a server restart. If one happens mid-draft, the comm
 - **Adding a friend:** on the **Members** page (`/members`, reached by typing the URL; nothing links to it), the commissioner types the friend's **Discord username** (the unique `@handle`, not the display name) and adds them. This creates a `users` row with `role = member` and `discord_id = null`. The friend appears as a dimmed placeholder avatar until they first log in.
 - **Removing a member** blocks their login on their next request. Their roster data stays.
 
-**Why no auth framework.** Better Auth, Auth.js and similar bring their own user, session and account tables, plus flows built for sign-up, email and many providers. This app has one provider, a hard allowlist, a username-binding rule and a dev login. Those are easier to write directly than to bend a framework around. `arctic` handles the only fiddly part (the OAuth exchange), and the rest is about 100 lines.
+**Why no auth framework.** Better Auth, Auth.js and similar bring their own user, session and account tables, plus flows built for sign-up, email and many providers. This app has one provider, a hard allowlist, a username-binding rule and a dev login. Those are easier to write directly than to bend a framework around. The OAuth exchange is a single `fetch`, and the rest is about 100 lines.
 
-**Discord OAuth** (authorization code flow, `identify` scope, via `arctic`):
+**Discord OAuth** (authorization code flow, `identify` scope, plain `fetch`):
 1. `GET /api/auth/discord` redirects to Discord. A `state` param in a short-lived cookie prevents CSRF.
 2. `/api/auth/discord/callback` gets the Discord user's `id`, `username`, `global_name` and `avatar`, then:
    - finds the user by `discord_id`, or

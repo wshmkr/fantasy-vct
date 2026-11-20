@@ -1,4 +1,4 @@
-import { Discord, generateState } from "arctic";
+import { randomBytes } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { type Request, type Response, Router } from "express";
 import { db } from "../db/client.js";
@@ -53,6 +53,27 @@ function bindDiscordUser(profile: DiscordProfile): number | null {
   return user.id;
 }
 
+// Plain fetch on purpose: cheerio installs undici 7 as fetch's global dispatcher, and it rejects
+// the hand-set Content-Length header that OAuth libraries like arctic add.
+async function exchangeCodeForAccessToken(
+  code: string,
+  { clientId, clientSecret, redirectUri }: DiscordClient,
+): Promise<string> {
+  const response = await fetch("https://discord.com/api/oauth2/token", {
+    method: "POST",
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  if (!response.ok) throw new Error(`Discord token ${response.status}`);
+  const { access_token } = (await response.json()) as { access_token: string };
+  return access_token;
+}
+
 async function fetchDiscordProfile(
   accessToken: string,
 ): Promise<DiscordProfile> {
@@ -63,23 +84,35 @@ async function fetchDiscordProfile(
   return (await response.json()) as DiscordProfile;
 }
 
+interface DiscordClient {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
 export function createDiscordRouter(clientId: string, clientSecret: string) {
-  const discord = new Discord(
+  const discord: DiscordClient = {
     clientId,
     clientSecret,
-    new URL("/api/auth/discord/callback", env.BASE_URL).toString(),
-  );
+    redirectUri: new URL("/api/auth/discord/callback", env.BASE_URL).toString(),
+  };
   const router = Router();
 
   router.get("/auth/discord", (_req: Request, res: Response) => {
-    const state = generateState();
+    const state = randomBytes(32).toString("base64url");
     res.cookie(STATE_COOKIE, state, {
       ...baseCookieOptions,
       maxAge: STATE_MAX_AGE_MS,
     });
-    res.redirect(
-      discord.createAuthorizationURL(state, null, ["identify"]).toString(),
-    );
+    const authorizeUrl = new URL("https://discord.com/oauth2/authorize");
+    authorizeUrl.search = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: discord.redirectUri,
+      scope: "identify",
+      state,
+    }).toString();
+    res.redirect(authorizeUrl.toString());
   });
 
   router.get("/auth/discord/callback", async (req: Request, res: Response) => {
@@ -96,8 +129,8 @@ export function createDiscordRouter(clientId: string, clientSecret: string) {
 
     let profile: DiscordProfile;
     try {
-      const tokens = await discord.validateAuthorizationCode(code, null);
-      profile = await fetchDiscordProfile(tokens.accessToken());
+      const accessToken = await exchangeCodeForAccessToken(code, discord);
+      profile = await fetchDiscordProfile(accessToken);
     } catch (error) {
       // A refreshed callback reuses a spent code; send them back to try again.
       console.warn("Discord login: code exchange failed", error);
