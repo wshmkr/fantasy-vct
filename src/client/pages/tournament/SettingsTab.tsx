@@ -1,10 +1,14 @@
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import InputBase from "@mui/material/InputBase";
 import { keyframes } from "@mui/material/styles";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
   API_ROUTES,
+  type ConnectDiscordBody,
+  type DiscordConnectionResult,
   type ImportStarted,
   type UpdateTournamentBody,
 } from "@shared/api";
@@ -18,7 +22,7 @@ import {
 } from "@shared/entities";
 import { useMutation } from "@tanstack/react-query";
 import { Lock, LockOpen, Minus, Plus, RefreshCw, Timer, X } from "lucide-react";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { apiClient } from "../../apiClient";
 import ErrorLabel from "../../components/ErrorLabel";
 import ManagerAvatar from "../../components/ManagerAvatar";
@@ -253,6 +257,68 @@ function DraftSection({ tournament }: { tournament: Tournament }) {
   );
 }
 
+function DiscordSection({ tournament }: { tournament: Tournament }) {
+  const [channelId, setChannelId] = useState(tournament.discordChannelId ?? "");
+  const connect = useTournamentMutation((body: ConnectDiscordBody) =>
+    apiClient.put<DiscordConnectionResult>(
+      API_ROUTES.tournamentDiscord(tournament.id),
+      body,
+    ),
+  );
+  const managersWithoutRole = connect.data?.managersWithoutRole ?? [];
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (channelId.trim()) connect.mutate({ channelId });
+  }
+
+  return (
+    <Pane
+      component="section"
+      aria-label="Discord"
+      sx={{ display: "flex", flexDirection: "column", gap: "10px" }}
+    >
+      <SectionLabel>Discord</SectionLabel>
+      <Box
+        component="form"
+        onSubmit={submit}
+        sx={{ display: "flex", gap: "8px" }}
+      >
+        <InputBase
+          value={channelId}
+          onChange={(event) => {
+            setChannelId(event.target.value);
+            connect.reset();
+          }}
+          placeholder="Channel ID"
+          inputProps={{ "aria-label": "Discord channel ID" }}
+          error={connect.isError}
+          sx={{ flex: 1, minWidth: 0, height: 38, fontSize: 13 }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={connect.isPending}
+          sx={{ height: 38, px: "14px" }}
+        >
+          {tournament.discordChannelId ? "Reconnect" : "Connect"}
+        </Button>
+      </Box>
+      <ErrorLabel message={connect.error?.message} />
+      {connect.isSuccess && (
+        <Typography
+          variant="body"
+          sx={{ fontSize: 12, color: "var(--ink-muted)" }}
+        >
+          {managersWithoutRole.length === 0
+            ? "Role given to every manager."
+            : `Couldn't give the role to ${managersWithoutRole.join(", ")}. Are they in the server?`}
+        </Typography>
+      )}
+    </Pane>
+  );
+}
+
 export default function SettingsTab({
   tournament,
 }: {
@@ -274,6 +340,7 @@ export default function SettingsTab({
       <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <ManagersSection tournament={tournament} />
         <DraftSection tournament={tournament} />
+        <DiscordSection tournament={tournament} />
       </Box>
       <StagesSection
         stages={tournament.stages}

@@ -273,8 +273,10 @@ export function syncTournament(
   });
 }
 
-export function startSyncTicker() {
+export function startSyncTicker(afterEachRun: () => Promise<void>) {
   setInterval(() => {
-    syncDueMatches().catch((error: unknown) => console.error(error));
+    syncDueMatches()
+      .then(afterEachRun)
+      .catch((error: unknown) => console.error(error));
   }, TICK_INTERVAL_MS);
 }

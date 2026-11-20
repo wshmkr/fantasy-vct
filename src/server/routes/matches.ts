@@ -1,21 +1,19 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { type Request, type Response, Router } from "express";
 import {
   type MatchDetail,
   type MatchesResponse,
   type MatchHeader,
-  type MatchPick,
   type MatchSub,
   type MatchTeamDetail,
   subAssignmentsBodySchema,
 } from "../../shared/api.js";
-import type { Team } from "../../shared/entities.js";
 import { addStatLines, ZERO_STAT_LINE } from "../../shared/scoring.js";
 import { requireCommissioner, requireUser } from "../auth/access.js";
 import { db } from "../db/client.js";
-import { matches, subAssignments, teams } from "../db/schema.js";
+import { matches, subAssignments } from "../db/schema.js";
 import { HttpError } from "../error-handler.js";
-import { coachLast, toPickable } from "../pickables.js";
+import { picksOf, teamLookup } from "../match-picks.js";
 import {
   type ScoredMatch,
   type ScoredStage,
@@ -24,22 +22,6 @@ import {
 import { isSyncRunning } from "../sync.js";
 
 type MatchRow = typeof matches.$inferSelect;
-
-function teamLookup(teamIds: (number | null)[]) {
-  const rows = db
-    .select({ id: teams.id, name: teams.name, logoImageId: teams.logoImageId })
-    .from(teams)
-    .where(
-      inArray(
-        teams.id,
-        teamIds.filter((id) => id !== null),
-      ),
-    )
-    .all();
-  const teamById = new Map(rows.map((team) => [team.id, team]));
-  return (teamId: number | null): Team | null =>
-    (teamId === null ? undefined : teamById.get(teamId)) ?? null;
-}
 
 function findMatch(matchId: unknown): MatchRow {
   const match = db
@@ -60,13 +42,6 @@ function matchHeaderOf(match: MatchRow, stageId: number | null): MatchHeader {
     status: match.status,
     scrapeStatus: match.scrapeStatus,
   };
-}
-
-function ownerOf(stage: ScoredStage | undefined, pickableId: number) {
-  return (
-    stage?.rosterEntries.find((entry) => entry.pickableId === pickableId)
-      ?.userId ?? null
-  );
 }
 
 function ownerUserIdsOf(stage: ScoredStage | undefined, teamId: number) {
@@ -120,46 +95,6 @@ function subsOf(scored: ScoredMatch, teamId: number): MatchSub[] {
         ];
       }),
     );
-}
-
-// Missing players are listed too, since a sub's stats may be credited to them.
-function picksOf(
-  scored: ScoredMatch,
-  stage: ScoredStage | undefined,
-  teamId: number,
-): MatchPick[] {
-  const missingPickableIds = new Set(
-    scored.pairings
-      .filter((pairing) => pairing.teamId === teamId)
-      .flatMap(({ pairing }) => pairing.missingPickableIds),
-  );
-  return (stage?.pool ?? [])
-    .filter((pickable) => pickable.teamId === teamId)
-    .flatMap((pickable): MatchPick[] => {
-      const ownRows = scored.statRows.filter(
-        (row) => row.vlrPlayerId === pickable.vlrId,
-      );
-      const isCoach = pickable.kind === "coach";
-      if (
-        !isCoach &&
-        ownRows.length === 0 &&
-        !missingPickableIds.has(pickable.id)
-      ) {
-        return [];
-      }
-      return [
-        {
-          pickable: toPickable(pickable),
-          ownerUserId: ownerOf(stage, pickable.id),
-          playerStatTotals:
-            isCoach || ownRows.length === 0
-              ? null
-              : ownRows.reduce(addStatLines, ZERO_STAT_LINE),
-          points: scored.pointsByPickable.get(pickable.id) ?? 0,
-        },
-      ];
-    })
-    .sort((a, b) => coachLast(a.pickable, b.pickable));
 }
 
 export const matchesRouter = Router();

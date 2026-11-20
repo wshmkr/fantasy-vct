@@ -93,8 +93,8 @@ export function useInvalidateTournaments() {
   );
 }
 
-export function useTournamentMutation<Variables>(
-  mutationFn: (variables: Variables) => Promise<unknown>,
+export function useTournamentMutation<Variables, Result = unknown>(
+  mutationFn: (variables: Variables) => Promise<Result>,
 ) {
   const invalidateTournaments = useInvalidateTournaments();
   return useMutation({ mutationFn, onSuccess: invalidateTournaments });

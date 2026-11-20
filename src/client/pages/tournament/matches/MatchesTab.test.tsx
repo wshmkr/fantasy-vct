@@ -22,6 +22,7 @@ const tournament: Tournament = {
   vlrEventUrl: "https://www.vlr.gg/event/1/x",
   logoImageId: null,
   joiningOpen: false,
+  discordChannelId: null,
   status: "live",
   stages: [
     {

@@ -1,7 +1,9 @@
 import { and, asc, count, desc, eq, ne } from "drizzle-orm";
 import { type Request, type Response, Router } from "express";
 import {
+  connectDiscordBodySchema,
   createTournamentBodySchema,
+  type DiscordConnectionResult,
   type ImportStarted,
   managerColorBodySchema,
   updateTournamentBodySchema,
@@ -25,6 +27,12 @@ import {
   tournaments,
   tournamentTeams,
 } from "../db/schema.js";
+import { isDiscordBotConfigured } from "../discord/client.js";
+import { postFinishedMatches } from "../discord/match-posts.js";
+import {
+  connectDiscordChannel,
+  syncManagerRole,
+} from "../discord/tournament-role.js";
 import { HttpError } from "../error-handler.js";
 import { toScoredPickable } from "../pickables.js";
 import { scoreTournament } from "../points.js";
@@ -87,6 +95,7 @@ function toTournament(row: TournamentRow): Tournament {
     vlrEventUrl: row.vlrEventUrl,
     logoImageId: row.logoImageId,
     joiningOpen: row.joiningOpen,
+    discordChannelId: row.discordChannelId,
     status: deriveTournamentStatus(
       stageRows.map((stage) => stage.status),
       matchStatuses,
@@ -210,7 +219,9 @@ tournamentsRouter.post(
   requireCommissioner,
   (req, res) => {
     const { id } = findTournament(req.params.tournamentId);
-    syncTournament(id).catch((error: unknown) => console.error(error));
+    syncTournament(id)
+      .then(postFinishedMatches)
+      .catch((error: unknown) => console.error(error));
     res.status(202).end();
   },
 );
@@ -281,6 +292,7 @@ tournamentsRouter.post(
         .values({ tournamentId: tournament.id, userId, color })
         .run();
     });
+    void syncManagerRole(tournament.id, userId, true);
     res.status(204).end();
   },
 );
@@ -331,14 +343,38 @@ tournamentsRouter.delete(
   (req, res: Response) => {
     const tournament = findTournament(req.params.tournamentId);
     requireNoDraftStarted(tournament.id);
+    const userId = Number(req.params.userId);
     db.delete(tournamentMembers)
       .where(
         and(
           eq(tournamentMembers.tournamentId, tournament.id),
-          eq(tournamentMembers.userId, Number(req.params.userId)),
+          eq(tournamentMembers.userId, userId),
         ),
       )
       .run();
+    void syncManagerRole(tournament.id, userId, false);
     res.status(204).end();
+  },
+);
+
+tournamentsRouter.put(
+  "/tournaments/:tournamentId/discord",
+  requireCommissioner,
+  async (req, res: Response<DiscordConnectionResult>) => {
+    const { id } = findTournament(req.params.tournamentId);
+    const body = connectDiscordBodySchema.safeParse(req.body);
+    if (!body.success) throw new HttpError(400, "Not a Discord channel ID");
+    if (!isDiscordBotConfigured()) {
+      throw new HttpError(400, "The Discord bot isn't set up yet");
+    }
+    try {
+      res.json(await connectDiscordChannel(id, body.data.channelId));
+    } catch (error) {
+      console.error(error);
+      throw new HttpError(
+        502,
+        "Discord refused. Check the bot is in the server and can manage roles.",
+      );
+    }
   },
 );

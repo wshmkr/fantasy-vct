@@ -49,6 +49,8 @@ export const API_ROUTES = {
   tournamentReimport: (tournamentId: Id) =>
     `/api/tournaments/${tournamentId}/reimport`,
   tournamentSync: (tournamentId: Id) => `/api/tournaments/${tournamentId}/sync`,
+  tournamentDiscord: (tournamentId: Id) =>
+    `/api/tournaments/${tournamentId}/discord`,
   tournamentStandings: (tournamentId: Id) =>
     `/api/tournaments/${tournamentId}/standings`,
   tournamentMatches: (tournamentId: Id) =>
@@ -118,6 +120,18 @@ export const addRosterEntryBodySchema = z.object({
   kind: z.enum(PICKABLE_KINDS),
 });
 export type AddRosterEntryBody = z.input<typeof addRosterEntryBodySchema>;
+
+export const connectDiscordBodySchema = z.object({
+  channelId: z
+    .string()
+    .trim()
+    .regex(/^\d{17,20}$/),
+});
+export type ConnectDiscordBody = z.input<typeof connectDiscordBodySchema>;
+
+export interface DiscordConnectionResult {
+  managersWithoutRole: string[];
+}
 
 export const updateTournamentBodySchema = z.object({
   joiningOpen: z.boolean().optional(),

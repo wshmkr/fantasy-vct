@@ -168,6 +168,7 @@ export interface Tournament {
   vlrEventUrl: string;
   logoImageId: number | null;
   joiningOpen: boolean;
+  discordChannelId: string | null;
   status: TournamentStatus;
   stages: Stage[];
   members: TournamentMember[];

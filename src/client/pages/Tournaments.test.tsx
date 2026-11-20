@@ -16,6 +16,7 @@ function makeTournament(overrides: Partial<Tournament> = {}): Tournament {
     vlrEventUrl: "https://www.vlr.gg/event/1/x",
     logoImageId: null,
     joiningOpen: true,
+    discordChannelId: null,
     status: "live",
     stages: [],
     members: [{ user: otherManager, color: "manager-red" }],

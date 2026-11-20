@@ -68,6 +68,9 @@ export const tournaments = sqliteTable("tournaments", {
     .notNull()
     .default({}),
   webhookUrl: text("webhook_url"),
+  discordChannelId: text("discord_channel_id"),
+  discordGuildId: text("discord_guild_id"),
+  discordRoleId: text("discord_role_id"),
   createdAt: createdAt("created_at"),
 });
 
@@ -246,6 +249,7 @@ export const matches = sqliteTable("matches", {
   scrapeError: text("scrape_error"),
   scrapedAt: text("scraped_at"),
   checkedAt: text("checked_at"),
+  discordPostedAt: text("discord_posted_at"),
 });
 
 export const matchMaps = sqliteTable(
