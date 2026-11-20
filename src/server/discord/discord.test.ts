@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { db } from "../db/client.js";
 import {
@@ -17,8 +17,10 @@ import { insertUser, loginAs } from "../test-utils.js";
 import { createFakeVlr, FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
 import { importEvent } from "../vlr/import.js";
 import { discord } from "./client.js";
+import { scheduleMessages } from "./schedule-post.js";
+import { stageResultsMessage } from "./stage-results-post.js";
 import { teamEmojiName } from "./team-emojis.js";
-import { matchPostMessage, postDiscordUpdates } from "./updates.js";
+import { postDiscordUpdates } from "./updates.js";
 
 vi.mock("./client.js", () => ({
   isDiscordBotConfigured: () => true,
@@ -41,6 +43,14 @@ vi.mock("./emoji-image.js", () => ({
 }));
 
 const CHANNEL_ID = "1573187782690734090";
+// 4:00 AM Pacific: before the 9:00 daily schedule, so only the posts under test go out.
+const EARLY_MORNING = new Date("2026-11-20T12:00:00Z");
+
+const postedMessages = () =>
+  vi.mocked(discord.postMessage).mock.calls.map(([, message]) => message);
+
+// Connecting kicks off a background post run; let it finish before the next one.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
 let tournamentId: number;
 let stageMatchIds: number[];
@@ -145,13 +155,11 @@ beforeEach(() => {
 });
 
 describe("Discord", () => {
-  test("connecting a channel creates the tournament role and gives it to the managers", async () => {
-    const amy = insertManager("amy", "discord-amy");
+  test("connecting creates the tournament role, gives it out and skips what already happened", async () => {
+    insertManager("amy", "discord-amy");
     insertManager("ghost", null);
-    const [alreadyFinished, nextMatch] = stageMatchIds;
-    if (alreadyFinished === undefined || nextMatch === undefined) {
-      throw new Error("need two stage matches");
-    }
+    const [alreadyFinished] = stageMatchIds;
+    if (alreadyFinished === undefined) throw new Error("no stage match");
     finishMatch(alreadyFinished);
 
     const commissioner = await loginAs(
@@ -161,6 +169,7 @@ describe("Discord", () => {
       .put(`/api/tournaments/${tournamentId}/discord`)
       .send({ channelId: CHANNEL_ID })
       .expect(200);
+    await settle();
 
     expect(body).toEqual({ managersWithoutRole: ["ghost"] });
     expect(discord.createRole).toHaveBeenCalledWith(
@@ -172,21 +181,26 @@ describe("Discord", () => {
       "discord-amy",
       "role-1",
     );
-    const tournament = (
-      await commissioner.get(`/api/tournaments/${tournamentId}`)
-    ).body;
-    expect(tournament.discordChannelId).toBe(CHANNEL_ID);
-
-    // A match that ended before connecting isn't posted.
-    await postDiscordUpdates();
+    expect(
+      (await commissioner.get(`/api/tournaments/${tournamentId}`)).body
+        .discordChannelId,
+    ).toBe(CHANNEL_ID);
     expect(discord.postMessage).not.toHaveBeenCalled();
+  });
 
+  test("a finished match posts once, silently, with each pick's stats, points and manager", async () => {
+    const [, nextMatch] = stageMatchIds;
     const match = db
       .select()
       .from(matches)
-      .where(eq(matches.id, nextMatch))
+      .where(eq(matches.id, nextMatch ?? -1))
       .get();
-    const draftedPlayer = db
+    const [stage] = db
+      .select()
+      .from(stages)
+      .where(eq(stages.tournamentId, tournamentId))
+      .all();
+    const drafted = db
       .select()
       .from(pickables)
       .where(
@@ -196,37 +210,34 @@ describe("Discord", () => {
         ),
       )
       .get();
-    const [stage] = db
+    const amy = db
       .select()
-      .from(stages)
-      .where(eq(stages.tournamentId, tournamentId))
-      .all();
-    if (!draftedPlayer || !stage) throw new Error("no player or stage");
+      .from(users)
+      .where(eq(users.discordUsername, "amy"))
+      .get();
+    if (!match || !stage || !drafted || !amy) throw new Error("missing rows");
     db.insert(rosterEntries)
-      .values({
-        stageId: stage.id,
-        userId: amy.id,
-        pickableId: draftedPlayer.id,
-      })
+      .values({ stageId: stage.id, userId: amy.id, pickableId: drafted.id })
       .run();
-    finishMatch(nextMatch);
+    finishMatch(match.id);
 
-    await postDiscordUpdates();
-    await postDiscordUpdates();
+    await postDiscordUpdates(EARLY_MORNING);
+    await postDiscordUpdates(EARLY_MORNING);
 
-    expect(discord.postMessage).toHaveBeenCalledTimes(1);
-    const [channelId, message] = vi.mocked(discord.postMessage).mock
-      .calls[0] ?? [undefined, undefined];
-    expect(channelId).toBe(CHANNEL_ID);
-    expect(message?.content).toMatch(/^<@&role-1> .+ 1–0 .+ is final$/);
-    expect(message?.allowed_mentions).toEqual({ roles: ["role-1"] });
+    const [message, ...others] = postedMessages();
+    expect(others).toEqual([]);
+    expect(message?.content).toBeUndefined();
+    expect(message?.allowed_mentions).toEqual({ parse: [] });
     const fields = message?.embeds[0]?.fields ?? [];
-    expect(fields.map((field) => field.name)).toContain("Standings");
-    expect(fields[0]?.value).toContain(`**${draftedPlayer.handle}** 20/10/5`);
-    expect(fields[0]?.value).toContain(" · <@discord-amy>");
-    expect(fields.at(-1)?.value).toMatch(
-      /^1\. <@discord-amy> · \*\*\d+\*\* \(\+\d+\)/,
+    const [players, stats, owners] = fields;
+    const [standings, totals] = fields.slice(-2);
+    expect(players?.value).toContain(
+      `[**${drafted.handle}**](${drafted.vlrUrl})`,
     );
+    expect(stats?.value).toContain("20/10/5");
+    expect(owners?.value).toMatch(/\*\*\d+\*\* · <@discord-amy>/);
+    expect(standings?.value).toMatch(/^1\. <@discord-amy>/);
+    expect(totals?.value).toMatch(/^\*\*\d+\*\* \(\+\d+\)/);
   });
 
   test("joining after the channel is connected gives the role", async () => {
@@ -250,7 +261,32 @@ describe("Discord", () => {
     );
   });
 
-  test("a finished draft posts every manager's team once, in draft order", async () => {
+  test("a match posts once at its scheduled time, listing both rosters", async () => {
+    const [, , upcoming] = stageMatchIds;
+    db.update(matches)
+      .set({
+        scheduledAt: "2026-11-20T11:00:00.000Z",
+        status: "upcoming",
+        discordStartPostedAt: null,
+      })
+      .where(eq(matches.id, upcoming ?? -1))
+      .run();
+
+    await postDiscordUpdates(new Date("2026-11-20T10:59:00Z"));
+    expect(discord.postMessage).not.toHaveBeenCalled();
+    await postDiscordUpdates(EARLY_MORNING);
+    await postDiscordUpdates(EARLY_MORNING);
+
+    const [message, ...others] = postedMessages();
+    expect(others).toEqual([]);
+    expect(message?.allowed_mentions).toEqual({ parse: [] });
+    expect(message?.embeds[0]?.title).toMatch(/^.+ vs .+$/);
+    const rosters = message?.embeds[0]?.fields ?? [];
+    expect(rosters).toHaveLength(2);
+    expect(rosters[0]?.value.split("\n").length).toBeGreaterThanOrEqual(5);
+  });
+
+  test("a finished draft posts every manager's team once, pinging the role", async () => {
     const [stage] = db
       .select()
       .from(stages)
@@ -270,19 +306,57 @@ describe("Discord", () => {
       .where(eq(stages.id, stage.id))
       .run();
 
-    await postDiscordUpdates();
-    await postDiscordUpdates();
+    await postDiscordUpdates(EARLY_MORNING);
+    await postDiscordUpdates(EARLY_MORNING);
 
-    expect(discord.postMessage).toHaveBeenCalledTimes(1);
-    const message = vi.mocked(discord.postMessage).mock.calls[0]?.[1];
-    expect(message?.content).toBe(
-      `<@&role-1> The ${stage.name} draft is done. Here are the teams:`,
-    );
+    const [message, ...others] = postedMessages();
+    expect(others).toEqual([]);
+    expect(message?.content).toBe("<@&role-1>");
+    expect(message?.allowed_mentions).toEqual({ roles: ["role-1"] });
     const [firstPick] = message?.embeds[0]?.fields ?? [];
     expect(firstPick?.name).toBe("1st pick");
     expect(firstPick?.value).toMatch(
-      /^<@discord-amy>\n<:(\w+):emoji-\1> \*\*.+\*\*/,
+      /^<@discord-amy>\n<:(\w+):emoji-\1> \[\*\*.+\*\*\]\(https:\/\/www\.vlr\.gg\/player\//,
     );
+  });
+
+  test("a finished match needing a fix pings the commissioner once; clean ones are only checked", async () => {
+    db.update(users)
+      .set({ discordId: "discord-commish" })
+      .where(eq(users.discordUsername, "commish"))
+      .run();
+    const [, , , broken] = stageMatchIds;
+    db.update(matches)
+      .set({
+        status: "completed",
+        scrapeStatus: "failed",
+        scrapeError: "Map 2 has 4 players for team 1",
+      })
+      .where(eq(matches.id, broken ?? -1))
+      .run();
+
+    await postDiscordUpdates(EARLY_MORNING);
+    await postDiscordUpdates(EARLY_MORNING);
+
+    const [message, ...others] = postedMessages();
+    expect(others).toEqual([]);
+    expect(message?.content).toBe("<@discord-commish>");
+    expect(message?.allowed_mentions).toEqual({ users: ["discord-commish"] });
+    expect(message?.embeds[0]?.description).toContain(
+      "Map 2 has 4 players for team 1",
+    );
+    const unchecked = db
+      .select({ id: matches.id })
+      .from(matches)
+      .where(
+        and(
+          eq(matches.tournamentId, tournamentId),
+          eq(matches.status, "completed"),
+          isNull(matches.discordAlertCheckedAt),
+        ),
+      )
+      .all();
+    expect(unchecked).toEqual([]);
   });
 
   test("each team logo is uploaded once as a bot emoji, reusing one uploaded before", async () => {
@@ -299,7 +373,7 @@ describe("Discord", () => {
       emojis().every(({ emoji }) => /^<:\w{2,32}:/.test(emoji ?? "")),
     ).toBe(true);
 
-    await postDiscordUpdates();
+    await postDiscordUpdates(EARLY_MORNING);
     expect(discord.listApplicationEmojis).not.toHaveBeenCalled();
     expect(discord.createApplicationEmoji).not.toHaveBeenCalled();
   });
@@ -313,54 +387,54 @@ describe("Discord", () => {
     expect(teamEmojiName("的", "77")).toBe("team_77");
   });
 
-  test("the message pings only the tournament role and lists points high to low", () => {
-    const message = matchPostMessage({
-      roleId: "role-9",
-      tournamentName: "Kickoff",
+  test("the schedule is one message when it fits, otherwise split between start times", () => {
+    const match = (scheduledAt: string, playerLength: number) => ({
+      scheduledAt,
+      bestOf: 3,
       stageName: "Swiss Stage",
-      matchesUrl: "https://example.test/tournaments/1/matches",
-      maps: [{ mapName: "Bind", team1Rounds: 13, team2Rounds: 11 }],
-      team1: {
-        name: "FlyQuest",
-        emoji: "<:team_1:9>",
-        score: 1,
-        picks: [
-          {
-            handle: "low",
-            isCoach: false,
-            stats: null,
-            points: 2,
-            owner: null,
-          },
-          {
-            handle: "Mikes",
-            isCoach: true,
-            stats: null,
-            points: 10,
-            owner: "<@bo>",
-          },
-        ],
-      },
-      team2: { name: "Masterclass", emoji: null, score: 0, picks: [] },
-      standings: [
-        { rank: 1, manager: "<@bo>", points: 10, matchPoints: 10 },
-        { rank: 2, manager: "Al", points: null, matchPoints: 0 },
+      vlrMatchUrl: "https://www.vlr.gg/1",
+      team1: { name: "A", emoji: null, lines: ["a".repeat(playerLength)] },
+      team2: { name: "B", emoji: null, lines: ["b".repeat(playerLength)] },
+    });
+    const post = (playerLength: number) => ({
+      tournamentName: "Kickoff",
+      dayLabel: "Friday, Nov 20",
+      matches: [
+        match("2026-11-20T22:00:00.000Z", playerLength),
+        match("2026-11-20T22:00:00.000Z", playerLength),
+        match("2026-11-21T00:30:00.000Z", playerLength),
       ],
     });
 
-    expect(message.content).toBe(
-      "<@&role-9> FlyQuest 1–0 Masterclass is final",
-    );
-    expect(message.allowed_mentions).toEqual({ roles: ["role-9"] });
-    expect(message.embeds[0]?.description).toBe("Swiss Stage · Bind 13–11");
-    expect(message.embeds[0]?.fields).toEqual([
-      {
-        name: "FlyQuest",
-        value:
-          "<:team_1:9> **Mikes** coach · **10** pts · <@bo>\n<:team_1:9> **low** didn't play · **2** pts",
-      },
-      { name: "Masterclass", value: "—" },
-      { name: "Standings", value: "1. <@bo> · **10** (+10)\n2. Al · **0**" },
+    expect(scheduleMessages(post(10))).toHaveLength(1);
+    const split = scheduleMessages(post(1000));
+    expect(split.map(({ embeds }) => embeds[0]?.fields?.length)).toEqual([
+      6, 3,
     ]);
+    expect(split[0]?.embeds[0]?.title).toBe("Today's matches · Friday, Nov 20");
+    expect(split[1]?.embeds[0]?.title).toBeUndefined();
+  });
+
+  test("a stage ends with its leader; the last one crowns the tournament winner", () => {
+    const post = {
+      roleId: "role-9",
+      tournamentName: "Kickoff",
+      stageName: "Swiss Stage",
+      rostersUrl: "https://example.test/tournaments/1/rosters",
+      stageStandings: [{ rank: 1, manager: "<@bo>", points: 251 }],
+      topPlayers: [],
+    };
+    expect(
+      stageResultsMessage({ ...post, tournamentStandings: null }).embeds[0]
+        ?.description,
+    ).toBe("<@bo> ends Swiss Stage with **251** points");
+    expect(
+      stageResultsMessage({
+        ...post,
+        tournamentStandings: [
+          { rank: 1, manager: "<@bo>", points: 400, stagePoints: 251 },
+        ],
+      }).embeds[0]?.description,
+    ).toBe("🏆 <@bo> wins the tournament with **400** points");
   });
 });

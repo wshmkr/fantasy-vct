@@ -1,14 +1,10 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { displayNameOf } from "../../shared/entities.js";
 import { db } from "../db/client.js";
-import {
-  matches,
-  tournamentMembers,
-  tournaments,
-  users,
-} from "../db/schema.js";
+import { tournamentMembers, tournaments, users } from "../db/schema.js";
 import { findTournament } from "../tournaments.js";
 import { discord } from "./client.js";
+import { skipDiscordBacklog } from "./updates.js";
 
 // Discord's limit on role names.
 const MAX_ROLE_NAME_LENGTH = 100;
@@ -60,23 +56,15 @@ export async function connectDiscordChannel(
     })
     .where(eq(tournaments.id, tournamentId))
     .run();
-  // Matches that ended before the channel was connected aren't news any more.
-  db.update(matches)
-    .set({ discordPostedAt: new Date().toISOString() })
-    .where(
-      and(
-        eq(matches.tournamentId, tournamentId),
-        eq(matches.status, "completed"),
-        eq(matches.scrapeStatus, "ok"),
-        isNull(matches.discordPostedAt),
-      ),
-    )
-    .run();
+  skipDiscordBacklog(tournamentId, new Date());
 
   const managersWithoutRole: string[] = [];
   for (const manager of managerAccountsOf(tournamentId)) {
+    if (!manager.discordUserId) {
+      managersWithoutRole.push(manager.displayName);
+      continue;
+    }
     try {
-      if (!manager.discordUserId) throw new Error("never logged in");
       await discord.addMemberRole(guildId, manager.discordUserId, roleId);
     } catch (error) {
       console.error(error);

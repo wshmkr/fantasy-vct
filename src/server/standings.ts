@@ -86,8 +86,10 @@ function stageStandingsOf(
   }));
 }
 
-export function standingsOf(tournamentId: number): ManagerStanding[] {
-  const scores = scoreTournament(tournamentId);
+export function standingsOf(
+  tournamentId: number,
+  scores = scoreTournament(tournamentId),
+): ManagerStanding[] {
   const members = tournamentMembersOf(tournamentId);
   const teamLogos = teamLogosOf(tournamentId);
   const standingsByStage = scores.stages.map((scored) =>

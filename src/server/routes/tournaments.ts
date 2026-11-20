@@ -218,7 +218,7 @@ tournamentsRouter.post(
   (req, res) => {
     const { id } = findTournament(req.params.tournamentId);
     syncTournament(id)
-      .then(postDiscordUpdates)
+      .then(() => postDiscordUpdates())
       .catch((error: unknown) => console.error(error));
     res.status(202).end();
   },

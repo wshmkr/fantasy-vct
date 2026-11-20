@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { images, teams, tournamentTeams } from "../db/schema.js";
 import { discord } from "./client.js";
@@ -39,10 +39,10 @@ export async function ensureTeamEmojis(tournamentId: number): Promise<void> {
       and(
         eq(tournamentTeams.tournamentId, tournamentId),
         isNull(teams.discordEmoji),
+        inArray(images.contentType, LOGO_IMAGE_TYPES),
       ),
     )
-    .all()
-    .filter(({ contentType }) => LOGO_IMAGE_TYPES.includes(contentType));
+    .all();
   if (missing.length === 0) return;
   let uploadedIdByName: Map<string, string>;
   try {

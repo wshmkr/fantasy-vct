@@ -9,7 +9,7 @@ export interface DiscordEmbedField {
 }
 
 export interface DiscordEmbed {
-  title: string;
+  title?: string;
   url?: string;
   description?: string;
   color?: number;
@@ -18,9 +18,10 @@ export interface DiscordEmbed {
 }
 
 export interface DiscordMessage {
-  content: string;
+  content?: string;
   embeds: DiscordEmbed[];
-  allowed_mentions: { roles: string[] };
+  // Lists exactly who may be pinged; an empty parse list pings nobody.
+  allowed_mentions: { parse?: []; roles?: string[]; users?: string[] };
 }
 
 export function isDiscordBotConfigured(): boolean {

@@ -72,6 +72,8 @@ export const tournaments = sqliteTable("tournaments", {
   discordChannelId: text("discord_channel_id"),
   discordGuildId: text("discord_guild_id"),
   discordRoleId: text("discord_role_id"),
+  // The America/Los_Angeles date (YYYY-MM-DD) of the last daily schedule post.
+  discordSchedulePostedOn: text("discord_schedule_posted_on"),
   createdAt: createdAt("created_at"),
 });
 
@@ -169,6 +171,7 @@ export const stages = sqliteTable("stages", {
   format: text("format", { enum: STAGE_FORMATS }).notNull().default("standard"),
   swissWins: integer("swiss_wins"),
   discordPostedAt: text("discord_posted_at"),
+  discordResultsPostedAt: text("discord_results_posted_at"),
 });
 
 export const stageManagers = sqliteTable(
@@ -256,6 +259,9 @@ export const matches = sqliteTable("matches", {
   scrapedAt: text("scraped_at"),
   checkedAt: text("checked_at"),
   discordPostedAt: text("discord_posted_at"),
+  discordStartPostedAt: text("discord_start_posted_at"),
+  // Set once a finished match has been checked for problems, alert or not.
+  discordAlertCheckedAt: text("discord_alert_checked_at"),
 });
 
 export const matchMaps = sqliteTable(

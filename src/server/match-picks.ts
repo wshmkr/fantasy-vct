@@ -23,7 +23,7 @@ export function teamLookup(teamIds: (number | null)[]) {
     (teamId === null ? undefined : teamById.get(teamId)) ?? null;
 }
 
-function ownerOf(stage: ScoredStage | undefined, pickableId: number) {
+export function ownerOf(stage: ScoredStage | undefined, pickableId: number) {
   return (
     stage?.rosterEntries.find((entry) => entry.pickableId === pickableId)
       ?.userId ?? null
