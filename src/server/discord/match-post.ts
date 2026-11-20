@@ -70,19 +70,15 @@ function mapScore({
 }
 
 // A coach has no K/D/A, so their line shows the rounds their team won on each map.
-function performance(
-  { isCoach, stats }: PostedPick,
-  roundsByMap: number[],
-  forfeit: boolean,
-) {
-  if (forfeit) return "—";
-  if (isCoach) return roundsByMap.join("/") || "—";
+function performance({ isCoach, stats }: PostedPick, roundsByMap: number[]) {
+  if (roundsByMap.length === 0) return "—";
+  if (isCoach) return roundsByMap.join("/");
   return stats ? `${stats.k}/${stats.d}/${stats.a}` : "DNP";
 }
 
 // Discord embeds have no tables, and at most three inline fields share a row, so a team's
 // picks become three columns kept to one line per cell so the rows line up.
-function teamColumns(team: PostedTeam, forfeit: boolean) {
+function teamColumns(team: PostedTeam) {
   const picks = team.picks.toSorted(
     (a, b) => Number(a.isCoach) - Number(b.isCoach) || b.points - a.points,
   );
@@ -90,7 +86,7 @@ function teamColumns(team: PostedTeam, forfeit: boolean) {
     column(team.heading, picks.map(pickName)),
     column(
       "K/D/A",
-      picks.map((pick) => performance(pick, team.roundsByMap, forfeit)),
+      picks.map((pick) => performance(pick, team.roundsByMap)),
     ),
     column(
       "Pts · Manager",
@@ -134,8 +130,8 @@ export function matchPostMessage(post: MatchPost): DiscordMessage {
           .join(" · "),
         color: ACCENT_COLOR,
         fields: [
-          ...teamColumns(post.team1, post.forfeit),
-          ...teamColumns(post.team2, post.forfeit),
+          ...teamColumns(post.team1),
+          ...teamColumns(post.team2),
           ...standingsColumns(post.standings),
         ],
         footer: { text: post.tournamentName },

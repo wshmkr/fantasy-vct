@@ -46,6 +46,8 @@ export type StageSource = (typeof STAGE_SOURCES)[number];
 export const MATCH_STATUSES = ["upcoming", "live", "completed"] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
+export type TeamSide = 1 | 2;
+
 // VLR can show a match live or completed before its scheduled time.
 export function hasStarted(
   match: { status: MatchStatus; scheduledAt: string | null },

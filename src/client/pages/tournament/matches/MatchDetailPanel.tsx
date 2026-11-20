@@ -7,7 +7,7 @@ import type {
   MatchSub,
   MatchTeamDetail,
 } from "@shared/api";
-import type { TournamentMember } from "@shared/entities";
+import type { TeamSide, TournamentMember } from "@shared/entities";
 import type { MapStatLine } from "@shared/scoring";
 import { CornerDownRight, TriangleAlert } from "lucide-react";
 import type { ChangeEvent } from "react";
@@ -289,7 +289,7 @@ function ScorePair({
 }: {
   team1: number | string | null;
   team2: number | string | null;
-  winner: 1 | 2 | null;
+  winner: TeamSide | null;
   separator: string;
   separatorGap?: string | number;
   sx: SxProps<Theme>;

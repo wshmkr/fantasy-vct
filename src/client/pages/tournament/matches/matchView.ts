@@ -5,7 +5,7 @@ import type {
   MatchTeamBase,
   MatchTeamDetail,
 } from "@shared/api";
-import type { MatchStatus, Stage } from "@shared/entities";
+import type { MatchStatus, Stage, TeamSide } from "@shared/entities";
 import {
   addStatLines,
   type MapStatLine,
@@ -95,7 +95,7 @@ export function winnerSide(
 
 interface ScoredMatchView {
   status: MatchStatus;
-  forfeitWinner: 1 | 2 | null;
+  forfeitWinner: TeamSide | null;
   team1: MatchTeamBase | null;
   team2: MatchTeamBase | null;
 }
@@ -107,7 +107,7 @@ export function matchWinner(match: ScoredMatchView) {
   return winnerSide(match.team1?.score ?? null, match.team2?.score ?? null);
 }
 
-export const sideScoreLabel = (match: ScoredMatchView, side: 1 | 2) =>
+export const sideScoreLabel = (match: ScoredMatchView, side: TeamSide) =>
   seriesScoreLabel(
     (side === 1 ? match.team1 : match.team2)?.score ?? null,
     side,

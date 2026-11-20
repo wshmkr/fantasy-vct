@@ -1,11 +1,9 @@
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
-import type { MatchStatus } from "../../shared/entities.js";
+import type { MatchStatus, TeamSide } from "../../shared/entities.js";
 import { isFinishedMap, type MapStatLine } from "../../shared/scoring.js";
 import { vlrIdFromHref } from "./event.js";
 import { absoluteVlrUrl } from "./fetch.js";
-
-type TeamSide = 1 | 2;
 
 export interface ParsedPlayerMapStats extends MapStatLine {
   vlrPlayerId: string;
@@ -94,74 +92,11 @@ export function parseMatchPages(
     status === "upcoming"
       ? []
       : scoreSpans.map((_, score) => toCount($(score).text())).get();
-  const forfeitWinner: TeamSide | null = isForfeitNote(statusNote)
-    ? scoreSpans.last().hasClass("match-header-vs-score-winner")
-      ? 2
-      : 1
-    : null;
-
-  const finishedMaps: ParsedMap[] = [];
+  const team2Won = scoreSpans.last().hasClass("match-header-vs-score-winner");
+  const forfeitWinner = isForfeitNote(statusNote) ? (team2Won ? 2 : 1) : null;
   // Maps played before a forfeit don't score.
-  if (forfeitWinner === null) {
-    $(".vm-stats-gamesnav-item")
-      .not('[data-game-id="all"]')
-      .each((index, navItem) => {
-        const gameId = $(navItem).attr("data-game-id");
-        const game = $(`.vm-stats-game[data-game-id="${gameId}"]`);
-        if (game.length === 0) return;
-        const header = game.find(".vm-stats-game-header");
-        const team1Rounds = toCount(header.find(".team .score").first().text());
-        const team2Rounds = toCount(
-          header.find(".team.mod-right .score").text(),
-        );
-        if (!isFinishedMap(team1Rounds, team2Rounds)) return;
-
-        const mapPerformance = performance.get(gameId ?? "");
-        const players = game
-          .find(".ovw-table")
-          .toArray()
-          .flatMap((table, tableIndex) =>
-            $(table)
-              .find(".ovw-row")
-              .not(".mod-head")
-              .map((_, row): ParsedPlayerMapStats => {
-                const link = $(row).find(".ovw-player a");
-                const handle = link.find(".ovw-player-name").text().trim();
-                const stat = (column: string) =>
-                  toCount(
-                    $(row)
-                      .find(`[data-col="${column}"] .side.mod-both`)
-                      .first()
-                      .text(),
-                  );
-                const highlights = mapPerformance?.get(handle);
-                if (!highlights) {
-                  throw new Error(`No performance stats for ${handle}`);
-                }
-                return {
-                  vlrPlayerId: vlrIdFromHref(link.attr("href") ?? ""),
-                  handle,
-                  side: tableIndex === 0 ? 1 : 2,
-                  k: stat("kills"),
-                  d: stat("deaths"),
-                  a: stat("assists"),
-                  fk: stat("fb"),
-                  fd: stat("fd"),
-                  ...highlights,
-                };
-              })
-              .get(),
-          );
-
-        finishedMaps.push({
-          mapNo: index + 1,
-          mapName: ownText(header.find(".map-name > span").first()),
-          team1Rounds,
-          team2Rounds,
-          players,
-        });
-      });
-  }
+  const finishedMaps =
+    forfeitWinner === null ? finishedMapsOf($, performance) : [];
 
   return {
     team1VlrId: teamVlrId(1),
@@ -173,6 +108,70 @@ export function parseMatchPages(
     forfeitWinner,
     finishedMaps,
   };
+}
+
+function finishedMapsOf(
+  $: cheerio.CheerioAPI,
+  performance: ReturnType<typeof parsePerformancePage>,
+): ParsedMap[] {
+  const finishedMaps: ParsedMap[] = [];
+  $(".vm-stats-gamesnav-item")
+    .not('[data-game-id="all"]')
+    .each((index, navItem) => {
+      const gameId = $(navItem).attr("data-game-id");
+      const game = $(`.vm-stats-game[data-game-id="${gameId}"]`);
+      if (game.length === 0) return;
+      const header = game.find(".vm-stats-game-header");
+      const team1Rounds = toCount(header.find(".team .score").first().text());
+      const team2Rounds = toCount(header.find(".team.mod-right .score").text());
+      if (!isFinishedMap(team1Rounds, team2Rounds)) return;
+
+      const mapPerformance = performance.get(gameId ?? "");
+      const players = game
+        .find(".ovw-table")
+        .toArray()
+        .flatMap((table, tableIndex) =>
+          $(table)
+            .find(".ovw-row")
+            .not(".mod-head")
+            .map((_, row): ParsedPlayerMapStats => {
+              const link = $(row).find(".ovw-player a");
+              const handle = link.find(".ovw-player-name").text().trim();
+              const stat = (column: string) =>
+                toCount(
+                  $(row)
+                    .find(`[data-col="${column}"] .side.mod-both`)
+                    .first()
+                    .text(),
+                );
+              const highlights = mapPerformance?.get(handle);
+              if (!highlights) {
+                throw new Error(`No performance stats for ${handle}`);
+              }
+              return {
+                vlrPlayerId: vlrIdFromHref(link.attr("href") ?? ""),
+                handle,
+                side: tableIndex === 0 ? 1 : 2,
+                k: stat("kills"),
+                d: stat("deaths"),
+                a: stat("assists"),
+                fk: stat("fb"),
+                fd: stat("fd"),
+                ...highlights,
+              };
+            })
+            .get(),
+        );
+
+      finishedMaps.push({
+        mapNo: index + 1,
+        mapName: ownText(header.find(".map-name > span").first()),
+        team1Rounds,
+        team2Rounds,
+        players,
+      });
+    });
+  return finishedMaps;
 }
 
 function parsePerformancePage(

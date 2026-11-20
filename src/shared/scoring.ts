@@ -1,3 +1,5 @@
+import type { TeamSide } from "./entities.js";
+
 const ROUNDS_TO_WIN_MAP = 13;
 const OVERTIME_WIN_MARGIN = 2;
 
@@ -226,8 +228,8 @@ export function coachMatchPoints(
 // A forfeit's series score means nothing, so its sides read W and FF.
 export function seriesScoreLabel(
   score: number | null,
-  side: 1 | 2,
-  forfeitWinner: 1 | 2 | null,
+  side: TeamSide,
+  forfeitWinner: TeamSide | null,
 ): number | string | null {
   if (forfeitWinner === null) return score;
   return forfeitWinner === side ? "W" : "FF";

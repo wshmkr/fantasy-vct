@@ -16,6 +16,7 @@ import {
   SCRAPE_STATUSES,
   STAGE_SOURCES,
   STAGE_STATUSES,
+  type TeamSide,
   type TopAgent,
   USER_ROLES,
 } from "../../shared/entities.js";
@@ -253,7 +254,7 @@ export const matches = sqliteTable("matches", {
     .notNull()
     .default("pending"),
   scrapeError: text("scrape_error"),
-  forfeitWinner: integer("forfeit_winner").$type<1 | 2>(),
+  forfeitWinner: integer("forfeit_winner").$type<TeamSide>(),
   scrapedAt: text("scraped_at"),
   checkedAt: text("checked_at"),
   discordPostedAt: text("discord_posted_at"),

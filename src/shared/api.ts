@@ -10,6 +10,7 @@ import {
   type Pickable,
   type ScrapeStatus,
   type Team,
+  type TeamSide,
   type User,
 } from "./entities.js";
 import type { MapStatLine } from "./scoring.js";
@@ -218,7 +219,7 @@ export interface MatchHeader {
   scheduledAt: string | null;
   status: MatchStatus;
   scrapeStatus: ScrapeStatus;
-  forfeitWinner: 1 | 2 | null;
+  forfeitWinner: TeamSide | null;
 }
 
 export type MatchTeamBase = Team & { score: number | null };
