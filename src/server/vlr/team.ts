@@ -4,6 +4,7 @@ import { type ParsedPerson, personFromHref } from "./event.js";
 export interface ParsedTeamPage {
   players: ParsedPerson[];
   headCoach: ParsedPerson | null;
+  tag: string | null;
 }
 
 // Subs are left out of the draft pool; substitutions get handled later from match data.
@@ -48,5 +49,9 @@ export function parseTeamPage(html: string): ParsedTeamPage {
       });
   });
 
-  return { players, headCoach };
+  return {
+    players,
+    headCoach,
+    tag: $(".team-header-tag").first().text().trim() || null,
+  };
 }

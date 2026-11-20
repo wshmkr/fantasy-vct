@@ -19,6 +19,7 @@ test("reads the starting players and the head coach, skipping subs and other sta
     handle: "allthewayPat",
     vlrUrl: "https://www.vlr.gg/player/31377/allthewaypat",
   });
+  expect(team.tag).toBe("INT");
   expect(team.headCoach).toEqual({
     vlrId: "57984",
     handle: "Lecadi",

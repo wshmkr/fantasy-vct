@@ -49,7 +49,32 @@ async function discordRequest<T>(
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
+function applicationId(): string {
+  if (!env.DISCORD_CLIENT_ID) throw new Error("DISCORD_CLIENT_ID isn't set");
+  return env.DISCORD_CLIENT_ID;
+}
+
 export const discord = {
+  async listApplicationEmojis(): Promise<{ id: string; name: string }[]> {
+    const { items } = await discordRequest<{
+      items: { id: string; name: string }[];
+    }>("GET", `/applications/${applicationId()}/emojis`);
+    return items;
+  },
+  async createApplicationEmoji(
+    name: string,
+    image: { contentType: string; bytes: Buffer },
+  ): Promise<string> {
+    const emoji = await discordRequest<{ id: string }>(
+      "POST",
+      `/applications/${applicationId()}/emojis`,
+      {
+        name,
+        image: `data:${image.contentType};base64,${image.bytes.toString("base64")}`,
+      },
+    );
+    return emoji.id;
+  },
   async guildIdOfChannel(channelId: string): Promise<string> {
     const channel = await discordRequest<{ guild_id?: string }>(
       "GET",

@@ -29,11 +29,11 @@ import {
   tournamentTeams,
 } from "../db/schema.js";
 import { isDiscordBotConfigured } from "../discord/client.js";
-import { postFinishedMatches } from "../discord/match-posts.js";
 import {
   connectDiscordChannel,
   syncManagerRole,
 } from "../discord/tournament-role.js";
+import { postDiscordUpdates } from "../discord/updates.js";
 import { HttpError } from "../error-handler.js";
 import { toScoredPickable } from "../pickables.js";
 import { scoreTournament } from "../points.js";
@@ -218,7 +218,7 @@ tournamentsRouter.post(
   (req, res) => {
     const { id } = findTournament(req.params.tournamentId);
     syncTournament(id)
-      .then(postFinishedMatches)
+      .then(postDiscordUpdates)
       .catch((error: unknown) => console.error(error));
     res.status(202).end();
   },
@@ -367,6 +367,7 @@ tournamentsRouter.put(
     }
     try {
       res.json(await connectDiscordChannel(id, body.data.channelId));
+      void postDiscordUpdates();
     } catch (error) {
       console.error(error);
       throw new HttpError(

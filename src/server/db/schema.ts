@@ -97,6 +97,10 @@ export const teams = sqliteTable("teams", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   vlrId: text("vlr_id").notNull().unique(),
   name: text("name").notNull(),
+  // VLR's short tag (C9, SRB); null when VLR has none.
+  tag: text("tag"),
+  // The bot's application emoji for the logo, as message markup (<:name:id>).
+  discordEmoji: text("discord_emoji"),
   logoImageId: integer("logo_image_id").references(() => images.id),
 });
 
@@ -164,6 +168,7 @@ export const stages = sqliteTable("stages", {
   createdAt: createdAt("created_at"),
   format: text("format", { enum: STAGE_FORMATS }).notNull().default("standard"),
   swissWins: integer("swiss_wins"),
+  discordPostedAt: text("discord_posted_at"),
 });
 
 export const stageManagers = sqliteTable(

@@ -7,7 +7,9 @@ import {
   pickables,
   playerMapStats,
   rosterEntries,
+  stageManagers,
   stages,
+  teams,
   tournamentMembers,
   users,
 } from "../db/schema.js";
@@ -15,7 +17,8 @@ import { insertUser, loginAs } from "../test-utils.js";
 import { createFakeVlr, FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
 import { importEvent } from "../vlr/import.js";
 import { discord } from "./client.js";
-import { matchPostMessage, postFinishedMatches } from "./match-posts.js";
+import { teamEmojiName } from "./team-emojis.js";
+import { matchPostMessage, postDiscordUpdates } from "./updates.js";
 
 vi.mock("./client.js", () => ({
   isDiscordBotConfigured: () => true,
@@ -25,7 +28,16 @@ vi.mock("./client.js", () => ({
     addMemberRole: vi.fn(async () => {}),
     removeMemberRole: vi.fn(async () => {}),
     postMessage: vi.fn(async () => {}),
+    listApplicationEmojis: vi.fn(async () => [
+      { id: "emoji-uploaded-before", name: "Backed_by_Nobody" },
+    ]),
+    createApplicationEmoji: vi.fn(async (name: string) => `emoji-${name}`),
   },
+}));
+
+// The fake VLR serves placeholder bytes, not real logos; emoji-image has its own tests.
+vi.mock("./emoji-image.js", () => ({
+  emojiImageOf: async (logo: Buffer) => logo,
 }));
 
 const CHANNEL_ID = "1573187782690734090";
@@ -166,7 +178,7 @@ describe("Discord", () => {
     expect(tournament.discordChannelId).toBe(CHANNEL_ID);
 
     // A match that ended before connecting isn't posted.
-    await postFinishedMatches();
+    await postDiscordUpdates();
     expect(discord.postMessage).not.toHaveBeenCalled();
 
     const match = db
@@ -199,8 +211,8 @@ describe("Discord", () => {
       .run();
     finishMatch(nextMatch);
 
-    await postFinishedMatches();
-    await postFinishedMatches();
+    await postDiscordUpdates();
+    await postDiscordUpdates();
 
     expect(discord.postMessage).toHaveBeenCalledTimes(1);
     const [channelId, message] = vi.mocked(discord.postMessage).mock
@@ -211,8 +223,10 @@ describe("Discord", () => {
     const fields = message?.embeds[0]?.fields ?? [];
     expect(fields.map((field) => field.name)).toContain("Standings");
     expect(fields[0]?.value).toContain(`**${draftedPlayer.handle}** 20/10/5`);
-    expect(fields[0]?.value).toContain(" · amy");
-    expect(fields.at(-1)?.value).toMatch(/^1\. amy · \*\*\d+\*\* \(\+\d+\)/);
+    expect(fields[0]?.value).toContain(" · <@discord-amy>");
+    expect(fields.at(-1)?.value).toMatch(
+      /^1\. <@discord-amy> · \*\*\d+\*\* \(\+\d+\)/,
+    );
   });
 
   test("joining after the channel is connected gives the role", async () => {
@@ -236,6 +250,69 @@ describe("Discord", () => {
     );
   });
 
+  test("a finished draft posts every manager's team once, in draft order", async () => {
+    const [stage] = db
+      .select()
+      .from(stages)
+      .where(eq(stages.tournamentId, tournamentId))
+      .all();
+    const amy = db
+      .select()
+      .from(users)
+      .where(eq(users.discordUsername, "amy"))
+      .get();
+    if (!stage || !amy) throw new Error("no stage or amy");
+    db.insert(stageManagers)
+      .values({ stageId: stage.id, userId: amy.id, seat: 0 })
+      .run();
+    db.update(stages)
+      .set({ status: "complete" })
+      .where(eq(stages.id, stage.id))
+      .run();
+
+    await postDiscordUpdates();
+    await postDiscordUpdates();
+
+    expect(discord.postMessage).toHaveBeenCalledTimes(1);
+    const message = vi.mocked(discord.postMessage).mock.calls[0]?.[1];
+    expect(message?.content).toBe(
+      `<@&role-1> The ${stage.name} draft is done. Here are the teams:`,
+    );
+    const [firstPick] = message?.embeds[0]?.fields ?? [];
+    expect(firstPick?.name).toBe("1st pick");
+    expect(firstPick?.value).toMatch(
+      /^<@discord-amy>\n<:(\w+):emoji-\1> \*\*.+\*\*/,
+    );
+  });
+
+  test("each team logo is uploaded once as a bot emoji, reusing one uploaded before", async () => {
+    const emojis = () =>
+      db
+        .select({ vlrId: teams.vlrId, emoji: teams.discordEmoji })
+        .from(teams)
+        .all();
+    expect(emojis()).toContainEqual({
+      vlrId: "23401",
+      emoji: "<:Backed_by_Nobody:emoji-uploaded-before>",
+    });
+    expect(
+      emojis().every(({ emoji }) => /^<:\w{2,32}:/.test(emoji ?? "")),
+    ).toBe(true);
+
+    await postDiscordUpdates();
+    expect(discord.listApplicationEmojis).not.toHaveBeenCalled();
+    expect(discord.createApplicationEmoji).not.toHaveBeenCalled();
+  });
+
+  test("emoji names are the team name, so hovering one shows the team", () => {
+    expect(teamEmojiName("Shopify Rebellion Black", "9353")).toBe(
+      "Shopify_Rebellion_Black",
+    );
+    expect(teamEmojiName("SaD Esports", "13920")).toBe("SaD_Esports");
+    expect(teamEmojiName("KRÜ", "2355")).toBe("KR");
+    expect(teamEmojiName("的", "77")).toBe("team_77");
+  });
+
   test("the message pings only the tournament role and lists points high to low", () => {
     const message = matchPostMessage({
       roleId: "role-9",
@@ -245,6 +322,7 @@ describe("Discord", () => {
       maps: [{ mapName: "Bind", team1Rounds: 13, team2Rounds: 11 }],
       team1: {
         name: "FlyQuest",
+        emoji: "<:team_1:9>",
         score: 1,
         picks: [
           {
@@ -252,21 +330,21 @@ describe("Discord", () => {
             isCoach: false,
             stats: null,
             points: 2,
-            ownerName: null,
+            owner: null,
           },
           {
             handle: "Mikes",
             isCoach: true,
             stats: null,
             points: 10,
-            ownerName: "Bo",
+            owner: "<@bo>",
           },
         ],
       },
-      team2: { name: "Masterclass", score: 0, picks: [] },
+      team2: { name: "Masterclass", emoji: null, score: 0, picks: [] },
       standings: [
-        { rank: 1, displayName: "Bo", points: 10, matchPoints: 10 },
-        { rank: 2, displayName: "Al", points: null, matchPoints: 0 },
+        { rank: 1, manager: "<@bo>", points: 10, matchPoints: 10 },
+        { rank: 2, manager: "Al", points: null, matchPoints: 0 },
       ],
     });
 
@@ -279,10 +357,10 @@ describe("Discord", () => {
       {
         name: "FlyQuest",
         value:
-          "**Mikes** coach · **10** pts · Bo\n**low** didn't play · **2** pts",
+          "<:team_1:9> **Mikes** coach · **10** pts · <@bo>\n<:team_1:9> **low** didn't play · **2** pts",
       },
       { name: "Masterclass", value: "—" },
-      { name: "Standings", value: "1. Bo · **10** (+10)\n2. Al · **0**" },
+      { name: "Standings", value: "1. <@bo> · **10** (+10)\n2. Al · **0**" },
     ]);
   });
 });

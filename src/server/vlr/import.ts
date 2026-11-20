@@ -60,6 +60,7 @@ interface ScrapedPerson extends ParsedPerson {
 }
 
 interface ScrapedTeam extends Omit<ParsedEventTeam, "registeredPlayers"> {
+  tag: string | null;
   logoImageId: number | null;
   players: ScrapedPerson[];
   headCoach: ScrapedPerson | null;
@@ -131,7 +132,7 @@ async function scrapeEvent(
     // The team page is still needed for the head coach; its players are only a fallback.
     const teamPage = parseTeamPage(await fetchPage(source, team.vlrUrl));
     rosters.push({
-      team,
+      team: { ...team, tag: teamPage.tag },
       players:
         registeredPlayers.length > 0 ? registeredPlayers : teamPage.players,
       headCoach: teamPage.headCoach,
@@ -257,11 +258,17 @@ function saveEvent(
       .values({
         vlrId: team.vlrId,
         name: team.name,
+        tag: team.tag,
         logoImageId: team.logoImageId,
       })
       .onConflictDoUpdate({
         target: teams.vlrId,
-        set: { name: team.name, logoImageId: team.logoImageId },
+        set: {
+          name: team.name,
+          // A tag set by hand survives re-imports of a team VLR gives no tag.
+          tag: sql`coalesce(excluded.tag, ${teams.tag})`,
+          logoImageId: team.logoImageId,
+        },
       })
       .returning({ id: teams.id })
       .get().id;
