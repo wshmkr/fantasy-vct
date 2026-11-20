@@ -1,0 +1,33 @@
+app = "fantasy-vct"
+primary_region = "nrt"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  DATABASE_PATH = "/data/app.db"
+  BASE_URL = "https://fantasy-vct.fly.dev"
+
+# Exactly one always-on machine: SQLite lives on its volume and the sync ticker runs in-process.
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/api/health"
+    timeout = "5s"
+
+# Fly snapshots the volume daily; those snapshots are the nightly backups.
+[mounts]
+  source = "data"
+  destination = "/data"
+  snapshot_retention = 30
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

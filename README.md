@@ -55,3 +55,23 @@ npm run test:coverage # text + HTML report
 ## Env
 
 Copy `.env.example` to `.env`. Vars are validated on boot in `src/server/env.ts`.
+
+## Deploy (Fly.io)
+
+One always-on machine with the SQLite file on a volume (`fly.toml`). First time:
+
+```
+fly auth login
+fly apps create fantasy-vct
+fly volumes create data --size 1 --region nrt --yes
+fly secrets set SESSION_SECRET=$(openssl rand -hex 32) \
+  COMMISSIONER_DISCORD_USERNAME=<discord username> \
+  DISCORD_CLIENT_ID=<id> DISCORD_CLIENT_SECRET=<secret>
+fly deploy --ha=false
+```
+
+The Discord application's OAuth2 redirect must be `https://fantasy-vct.fly.dev/api/auth/discord/callback`. After that, `fly deploy` ships a new version.
+
+- **Admin fixes:** `fly ssh console -C "sqlite3 /data/app.db"`
+- **Backups:** Fly snapshots the volume daily and keeps 30 days (`fly volumes snapshots list <volume id>`). To restore, create a volume from a snapshot (`fly volumes create data --snapshot-id <id> --region nrt`), destroy the machine and the old volume, then `fly deploy --ha=false`.
+- **Local copy:** `fly ssh console -C "sqlite3 /data/app.db '.backup /data/copy.db'"`, then `fly ssh sftp get /data/copy.db`
