@@ -4,7 +4,7 @@ import {
   type MatchesResponse,
   type SubAssignmentsBody,
 } from "@shared/api";
-import { hasStarted } from "@shared/entities";
+import { hasStarted, isPastAutoRetryWindow } from "@shared/entities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { apiClient } from "./apiClient";
@@ -31,13 +31,15 @@ export function liveRefetchInterval(
   data: MatchesResponse | undefined,
   now: number,
 ): number | false {
-  const unscraped = (data?.matches ?? []).filter(
-    (match) => match.scrapeStatus !== "ok",
+  const awaitingStats = (data?.matches ?? []).filter(
+    (match) =>
+      match.scrapeStatus !== "ok" &&
+      !isPastAutoRetryWindow(match, new Date(now)),
   );
-  if (unscraped.some((match) => hasStarted(match, new Date(now)))) {
+  if (awaitingStats.some((match) => hasStarted(match, new Date(now)))) {
     return LIVE_REFETCH_MS;
   }
-  const kickoffs = unscraped.flatMap((match) =>
+  const kickoffs = awaitingStats.flatMap((match) =>
     match.scheduledAt === null ? [] : [Date.parse(match.scheduledAt)],
   );
   if (kickoffs.length === 0) return false;

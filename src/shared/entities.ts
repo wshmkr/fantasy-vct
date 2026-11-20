@@ -61,6 +61,19 @@ export function hasStarted(
   );
 }
 
+const AUTO_RETRY_WINDOW_MS = 24 * 60 * 60_000;
+
+// VLR rarely fills in a page this late (a forfeit never gets maps), so after that only a manual Sync retries.
+export function isPastAutoRetryWindow(
+  match: { scheduledAt: string | null },
+  now: Date,
+): boolean {
+  return (
+    match.scheduledAt !== null &&
+    now.getTime() - Date.parse(match.scheduledAt) >= AUTO_RETRY_WINDOW_MS
+  );
+}
+
 export const SCRAPE_STATUSES = ["pending", "ok", "failed"] as const;
 export type ScrapeStatus = (typeof SCRAPE_STATUSES)[number];
 

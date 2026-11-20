@@ -469,7 +469,7 @@ Pasting an event link runs the whole import, with a progress indicator. There's 
    - no negative numbers
    - once the match is completed: the maps won equal the series score
 4. **Save in one transaction:** replace the match's `match_maps` and `player_map_stats` rows with the finished maps, set `scraped_at`, and set `scrape_status = ok` only if the match is completed and passed every check. Otherwise it stays `pending` and gets checked again in 15 minutes.
-5. **On a fetch, parse or check error:** keep the rows already saved, set `scrape_status = failed` and `scrape_error`. A failed match stays due, so it retries every 15 minutes and clears itself if VLR fixes the page.
+5. **On a fetch, parse or check error:** keep the rows already saved, set `scrape_status = failed` and `scrape_error`. A failed match stays due for 24 hours after `scheduled_at`, so it retries every 15 minutes and clears itself if VLR fixes the page. After that only a manual Sync retries it, so a page VLR never fills in (a forfeit) doesn't keep fetching forever; the commissioner marks it `ok` in the DB.
 6. Always set `checked_at`.
 
 More rules:
@@ -993,7 +993,7 @@ Packages run in order unless marked **‖ parallel-safe**. Each one goes through
 - A corrupted fixture fails the sanity check and saves only `failed` plus the error.
 - Sync is idempotent and never touches `ok` matches.
 - The live fixture saves only its finished maps and stays `pending`. Finished-map rule tests: 13-11 and 14-12 count; 12-12 and 13-12 don't.
-- `isDue` tests: not before `scheduled_at`; due at it; not again within 15 minutes of `checked_at`; `failed` stays due; `ok` never is.
+- `isDue` tests: not before `scheduled_at`; due at it; not again within 15 minutes of `checked_at`; `failed` stays due until 24 hours after `scheduled_at`; `ok` never is.
 - Two overlapping runs don't both scrape.
 - Sub pairing unit tests (pure, in `src/shared`), using rostered picks only:
   - 1 missing and 1 sub: auto-paired

@@ -1,5 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
-import { hasStarted } from "../shared/entities.js";
+import { hasStarted, isPastAutoRetryWindow } from "../shared/entities.js";
 import { db as appDb, type Db } from "./db/client.js";
 import {
   matches,
@@ -39,7 +39,13 @@ export interface SyncOptions {
 }
 
 export function isDue(match: MatchTiming, now: Date): boolean {
-  if (match.scrapeStatus === "ok" || !hasStarted(match, now)) return false;
+  if (
+    match.scrapeStatus === "ok" ||
+    !hasStarted(match, now) ||
+    isPastAutoRetryWindow(match, now)
+  ) {
+    return false;
+  }
   return (
     match.checkedAt === null ||
     now.getTime() - Date.parse(match.checkedAt) >= RECHECK_INTERVAL_MS

@@ -54,10 +54,11 @@ describe("isDue", () => {
     expect(isDue(checked, minutesAfterStart(15))).toBe(true);
   });
 
-  test("failed stays due, ok never is", () => {
-    expect(
-      isDue({ ...pending, scrapeStatus: "failed" }, minutesAfterStart(60)),
-    ).toBe(true);
+  test("failed stays due for a day after kickoff, ok never is", () => {
+    const failed = { ...pending, scrapeStatus: "failed" } as const;
+    expect(isDue(failed, minutesAfterStart(60))).toBe(true);
+    expect(isDue(failed, minutesAfterStart(23 * 60))).toBe(true);
+    expect(isDue(failed, minutesAfterStart(24 * 60))).toBe(false);
     expect(
       isDue({ ...pending, scrapeStatus: "ok" }, minutesAfterStart(60)),
     ).toBe(false);

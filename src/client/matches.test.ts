@@ -52,3 +52,12 @@ test("stops polling once every match is scraped or unscheduled", () => {
   ).toBe(false);
   expect(liveRefetchInterval(undefined, now)).toBe(false);
 });
+
+test("a match still unscraped a day after kickoff stops the polling", () => {
+  const stuck = {
+    status: "completed",
+    scrapeStatus: "failed",
+    scheduledAt: new Date(now - minutes(24 * 60)).toISOString(),
+  } as const;
+  expect(liveRefetchInterval(matchesWith(stuck), now)).toBe(false);
+});
