@@ -79,7 +79,10 @@ export function parseMatchPages(
     if (!href) throw new Error("Match page has no teams");
     return vlrIdFromHref(href);
   };
-  const [statusNote = "", formatNote = ""] = $(".match-header-vs-note")
+  // Direct children only: a live match nests a second "live" note inside the status note.
+  const [statusNote = "", formatNote = ""] = $(
+    ".match-header-vs-score > .match-header-vs-note",
+  )
     .map((_, note) => $(note).text().trim().toLowerCase())
     .get();
   const bestOf = /bo(\d)/.exec(formatNote)?.[1];
