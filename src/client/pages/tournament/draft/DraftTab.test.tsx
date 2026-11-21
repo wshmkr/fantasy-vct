@@ -75,6 +75,7 @@ const seat = (
   color: seatNo === 0 ? "manager-blue" : "manager-rose",
   locked: false,
   rosterPickableIds: [],
+  droppedPickables: [],
   ...overrides,
 });
 
@@ -82,8 +83,6 @@ function draftState(overrides: Partial<DraftState>): DraftState {
   return {
     stageId: 3,
     status: "drafting",
-    phase: "draft",
-    round: 0,
     turnNo: 0,
     pickSeconds: 90,
     seats: [seat(me, 0), seat(rival, 1)],
@@ -141,13 +140,12 @@ test("rows stay read-only when it is someone else's turn", async () => {
   expect(screen.queryByRole("button", { name: "Lock" })).toBeNull();
 });
 
-test("a full roster can lock out of turn in the swap phase", async () => {
+test("a full roster can lock out of turn", async () => {
   let sent: unknown;
   const roster = [21, 22, 23, 24, 25, 26];
   renderDraft(
     draftState({
-      phase: "swap",
-      round: 6,
+      turnNo: 12,
       currentSeat: 1,
       seats: [seat(me, 0, { rosterPickableIds: roster }), seat(rival, 1)],
       pool: roster.map((id) =>
@@ -165,6 +163,57 @@ test("a full roster can lock out of turn in the swap phase", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Lock" }));
 
   await waitFor(() => expect(sent).toEqual({ action: "lock" }));
+});
+
+test("with an empty slot, a selected own cell still swaps instead of picking", async () => {
+  let sent: unknown;
+  renderDraft(
+    draftState({
+      seats: [seat(me, 0, { rosterPickableIds: [21] }), seat(rival, 1)],
+      pool: [
+        pickable(21, "Less", { ownerUserId: me.id }),
+        pickable(11, "zekken"),
+      ],
+    }),
+    (body) => {
+      sent = body;
+    },
+  );
+
+  await userEvent.click(await screen.findByRole("button", { name: "Less" }));
+  await userEvent.click(screen.getByRole("option", { name: "zekken" }));
+  await userEvent.click(screen.getByRole("button", { name: "Swap" }));
+
+  await waitFor(() =>
+    expect(sent).toEqual({
+      action: "swap",
+      pickableOutId: 21,
+      pickableInId: 11,
+    }),
+  );
+});
+
+test("a later stage's setup shows dropped picks struck out", async () => {
+  renderDraft(
+    draftState({
+      status: "setup",
+      currentSeat: null,
+      seats: [
+        seat(me, 0, {
+          rosterPickableIds: [21],
+          droppedPickables: [
+            { ...pickable(31, "aspas"), teamLogoImageId: null },
+          ],
+        }),
+        seat(rival, 1),
+      ],
+      pool: [pickable(21, "Less", { ownerUserId: me.id })],
+    }),
+    () => {},
+  );
+
+  expect(await screen.findByLabelText("aspas dropped")).toBeInTheDocument();
+  expect(screen.getByLabelText("Less")).toBeInTheDocument();
 });
 
 test("the pool sorts by PTS once points exist, and the header flips it", async () => {

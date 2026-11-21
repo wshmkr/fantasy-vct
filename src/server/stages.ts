@@ -1,4 +1,4 @@
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, type SQL } from "drizzle-orm";
 import type { Stage } from "../shared/entities.js";
 import { db } from "./db/client.js";
 import { matches, stagePool, stages } from "./db/schema.js";
@@ -17,20 +17,25 @@ export function requireSetup(stage: StageRow): StageRow {
   return stage;
 }
 
+export function countStageMatches(row: StageRow, where?: SQL): number {
+  if (row.vlrStageKeysJson.length === 0) return 0;
+  return (
+    db
+      .select({ matches: count() })
+      .from(matches)
+      .where(
+        and(
+          eq(matches.tournamentId, row.tournamentId),
+          inArray(matches.stageKey, row.vlrStageKeysJson),
+          where,
+        ),
+      )
+      .get()?.matches ?? 0
+  );
+}
+
 export function toStage(row: StageRow): Stage {
-  const matchCount =
-    row.vlrStageKeysJson.length === 0
-      ? 0
-      : (db
-          .select({ matches: count() })
-          .from(matches)
-          .where(
-            and(
-              eq(matches.tournamentId, row.tournamentId),
-              inArray(matches.stageKey, row.vlrStageKeysJson),
-            ),
-          )
-          .get()?.matches ?? 0);
+  const matchCount = countStageMatches(row);
   const poolSize =
     db
       .select({ pickables: count() })

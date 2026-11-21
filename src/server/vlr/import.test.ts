@@ -13,7 +13,7 @@ import {
 } from "../db/schema.js";
 import { createFakeVlr, FIXTURE_EVENT_URL } from "./fake-vlr.js";
 import { DEFAULT_PLAYER_PICTURE_URL } from "./images.js";
-import { importEvent, reimportTournament } from "./import.js";
+import { importEvent, reimportTournament, reseedSetupPools } from "./import.js";
 
 const EVENT_URL = FIXTURE_EVENT_URL;
 const PICKABLE_COUNT = 91 + 16;
@@ -202,6 +202,44 @@ describe("importEvent", () => {
         new Map<number, number>(),
       );
     expect([...poolSizes.values()]).toEqual([PICKABLE_COUNT, PICKABLE_COUNT]);
+  });
+
+  test("a bracket with TBD later rounds pools only its named teams", () => {
+    const playoffs = db
+      .select()
+      .from(stages)
+      .where(eq(stages.name, "Playoffs"))
+      .get();
+    const [first, second] = db
+      .select()
+      .from(matches)
+      .where(eq(matches.stageKey, "6021"))
+      .all();
+    const [teamA, teamB, teamC] = db.select().from(teams).all();
+    if (!playoffs || !first || !second || !teamA || !teamB || !teamC) {
+      throw new Error("fixture missing");
+    }
+    db.update(matches)
+      .set({ team1Id: teamA.id, team2Id: teamB.id })
+      .where(eq(matches.id, first.id))
+      .run();
+    db.update(matches)
+      .set({ team1Id: teamC.id, team2Id: null })
+      .where(eq(matches.id, second.id))
+      .run();
+
+    db.transaction((tx) => reseedSetupPools(tx, tournamentId));
+
+    const pooledTeamIds = db
+      .selectDistinct({ teamId: pickables.teamId })
+      .from(stagePool)
+      .innerJoin(pickables, eq(pickables.id, stagePool.pickableId))
+      .where(eq(stagePool.stageId, playoffs.id))
+      .all()
+      .map((row) => row.teamId);
+    expect(new Set(pooledTeamIds)).toEqual(
+      new Set([teamA.id, teamB.id, teamC.id]),
+    );
   });
 
   test("importing again is idempotent and uses the cache", async () => {

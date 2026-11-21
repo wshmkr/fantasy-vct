@@ -1,34 +1,81 @@
-import { and, asc, desc, eq } from "drizzle-orm";
-import type { DraftSeat, DraftState, Team } from "../../shared/entities.js";
-import { phaseForTurn, roundForTurn, seatForTurn } from "../../shared/snake.js";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import type {
+  DraftSeat,
+  DraftState,
+  DroppedPickable,
+  Team,
+} from "../../shared/entities.js";
+import { seatForTurn } from "../../shared/snake.js";
 import { db } from "../db/client.js";
-import {
-  draftActions,
-  pickables,
-  rosterEntries,
-  stagePool,
-  teams,
-} from "../db/schema.js";
-import { toScoredPickable } from "../pickables.js";
+import { draftActions, pickables, stagePool, teams } from "../db/schema.js";
+import { toPickable, toScoredPickable } from "../pickables.js";
 import { scoreTournament, type TournamentScores } from "../points.js";
-import { findStage } from "../stages.js";
+import { findStage, type StageRow } from "../stages.js";
 import { tournamentMembersOf } from "../tournament-members.js";
+import {
+  type CarriedPick,
+  carriedPicks,
+  previousStageOf,
+  reversedSeats,
+} from "./carry-over.js";
 import { seatsMatchJoined, seatsOf } from "./seats.js";
 
 const RECENT_ACTION_COUNT = 10;
 
-function rosterPickableIdsByUser(
-  scores: TournamentScores,
-  stageId: number,
-): Map<number, number[]> {
-  const entries =
-    scores.stages.find(({ stage }) => stage.id === stageId)?.rosterEntries ??
-    [];
-  const byUser = new Map<number, number[]>();
-  for (const { userId, pickableId } of entries) {
-    byUser.set(userId, [...(byUser.get(userId) ?? []), pickableId]);
+function groupByUser<Item extends { userId: number }, Value>(
+  items: Item[],
+  toValue: (item: Item) => Value | undefined,
+): Map<number, Value[]> {
+  const byUser = new Map<number, Value[]>();
+  for (const item of items) {
+    const value = toValue(item);
+    if (value === undefined) continue;
+    byUser.set(item.userId, [...(byUser.get(item.userId) ?? []), value]);
   }
   return byUser;
+}
+
+function droppedPickablesOf(
+  picks: CarriedPick[],
+): Map<number, DroppedPickable[]> {
+  const pickableIds = picks.map((pick) => pick.pickableId);
+  if (pickableIds.length === 0) return new Map();
+  const byId = new Map(
+    db
+      .select({ pickable: pickables, teamLogoImageId: teams.logoImageId })
+      .from(pickables)
+      .innerJoin(teams, eq(teams.id, pickables.teamId))
+      .where(inArray(pickables.id, pickableIds))
+      .all()
+      .map(({ pickable, teamLogoImageId }) => [
+        pickable.id,
+        { ...toPickable(pickable), teamLogoImageId },
+      ]),
+  );
+  return groupByUser(picks, (pick) => byId.get(pick.pickableId));
+}
+
+// Before the start, a later stage previews the carry-over as if it were already its rosters.
+function rostersOf(
+  stage: StageRow,
+  previous: StageRow | undefined,
+  scores: TournamentScores,
+) {
+  const toPickableId = (entry: { pickableId: number }) => entry.pickableId;
+  if (stage.status !== "setup" || !previous) {
+    const entries =
+      scores.stages.find((scored) => scored.stage.id === stage.id)
+        ?.rosterEntries ?? [];
+    return { rosters: groupByUser(entries, toPickableId), dropped: new Map() };
+  }
+  const picks = carriedPicks(previous, stage.id);
+  return {
+    rosters: groupByUser(
+      picks.filter((pick) => pick.kept),
+      toPickableId,
+    ),
+    dropped: droppedPickablesOf(picks.filter((pick) => !pick.kept)),
+  };
 }
 
 export function readDraftState(stageId: number): DraftState {
@@ -36,13 +83,22 @@ export function readDraftState(stageId: number): DraftState {
   const members = tournamentMembersOf(stage.tournamentId);
   const membersById = new Map(members.map((m) => [m.user.id, m]));
   const scores = scoreTournament(stage.tournamentId);
-  const rosters = rosterPickableIdsByUser(scores, stage.id);
+  const previous =
+    stage.status === "setup" ? previousStageOf(stage) : undefined;
+  const { rosters, dropped } = rostersOf(stage, previous, scores);
+  const rosterOwners = new Map(
+    [...rosters].flatMap(([userId, pickableIds]) =>
+      pickableIds.map((pickableId) => [pickableId, userId] as const),
+    ),
+  );
 
   const seatRows = seatsOf(stage.id);
   const joined = members.map((member) => member.user.id);
   const seatedUsers =
     stage.status === "setup" && !seatsMatchJoined(seatRows, joined)
-      ? joined.map((userId, seat) => ({ userId, seat, lockedAt: null }))
+      ? ((previous && reversedSeats(previous, joined)) ?? joined).map(
+          (userId, seat) => ({ userId, seat, lockedAt: null }),
+        )
       : seatRows;
   const seats: DraftSeat[] = seatedUsers.flatMap(
     ({ userId, seat, lockedAt }) => {
@@ -54,6 +110,7 @@ export function readDraftState(stageId: number): DraftState {
           ...member,
           locked: lockedAt !== null,
           rosterPickableIds: rosters.get(userId) ?? [],
+          droppedPickables: dropped.get(userId) ?? [],
         },
       ];
     },
@@ -63,18 +120,10 @@ export function readDraftState(stageId: number): DraftState {
     .select({
       pickable: pickables,
       team: { id: teams.id, name: teams.name, logoImageId: teams.logoImageId },
-      ownerUserId: rosterEntries.userId,
     })
     .from(stagePool)
     .innerJoin(pickables, eq(pickables.id, stagePool.pickableId))
     .innerJoin(teams, eq(teams.id, pickables.teamId))
-    .leftJoin(
-      rosterEntries,
-      and(
-        eq(rosterEntries.stageId, stagePool.stageId),
-        eq(rosterEntries.pickableId, stagePool.pickableId),
-      ),
-    )
     .where(and(eq(stagePool.stageId, stage.id), eq(stagePool.removed, false)))
     .orderBy(asc(pickables.id))
     .all();
@@ -106,15 +155,12 @@ export function readDraftState(stageId: number): DraftState {
   return {
     stageId: stage.id,
     status: stage.status,
-    phase:
-      seatCount > 0 ? phaseForTurn(stage.currentTurnNo, seatCount) : "draft",
-    round: seatCount > 0 ? roundForTurn(stage.currentTurnNo, seatCount) : 0,
     turnNo: stage.currentTurnNo,
     pickSeconds: stage.pickSeconds,
     seats,
-    pool: poolRows.map(({ pickable, ownerUserId }) => ({
+    pool: poolRows.map(({ pickable }) => ({
       ...toScoredPickable(pickable, scores),
-      ownerUserId,
+      ownerUserId: rosterOwners.get(pickable.id) ?? null,
     })),
     teams: [...poolTeams.values()].sort((a, b) => a.name.localeCompare(b.name)),
     currentSeat: onClock ? seatForTurn(stage.currentTurnNo, seatCount) : null,

@@ -2,10 +2,12 @@ import Box from "@mui/material/Box";
 import type { DraftActionBody } from "@shared/api";
 import {
   type DraftState,
+  hasRoomFor,
   isDraftRunning,
+  isRosterFull,
+  type Pickable,
   type PickableKind,
   type PoolPickable,
-  ROSTER_LIMITS,
   type Stage,
   type Tournament,
   type User,
@@ -21,7 +23,6 @@ import {
   CommissionerControls,
   CompleteBadge,
   OnTheClock,
-  PhaseDots,
   PrimaryAction,
   RejectionLabel,
 } from "./ClockBar";
@@ -32,7 +33,6 @@ import RecentActions from "./RecentActions";
 import { useSecondsLeft } from "./useSecondsLeft";
 
 const REJECTION_MS = 3000;
-const FULL_ROSTER_SIZE = ROSTER_LIMITS.player + ROSTER_LIMITS.coach;
 // Tall enough for about eight pool rows even when few managers make the board short.
 const MIN_POOL_HEIGHT = 470;
 
@@ -136,37 +136,37 @@ function DraftRoom({
     draft.status === "drafting" &&
     actorSeat !== undefined &&
     actorSeat.seat === draft.currentSeat;
-  const canPick = isActorsTurn && draft.phase === "draft";
-  const canSwap = isActorsTurn && draft.phase === "swap";
+  const { pickablesById, teamLogos } = draftLookups(draft);
+  const actorKinds = (actorSeat?.rosterPickableIds ?? []).flatMap(
+    (id) => pickablesById.get(id)?.kind ?? [],
+  );
+  const canPick = isActorsTurn && hasRoomFor(actorKinds, kind);
   const canLock =
     draft.status === "drafting" &&
-    draft.phase === "swap" &&
     actorSeat !== undefined &&
     !actorSeat.locked &&
-    actorSeat.rosterPickableIds.length === FULL_ROSTER_SIZE;
+    isRosterFull(actorKinds);
   const selectedSwapOutId =
-    canSwap &&
+    isActorsTurn &&
     swapOutId !== null &&
     actorSeat.rosterPickableIds.includes(swapOutId)
       ? swapOutId
       : null;
 
-  const { pickablesById, teamLogos } = draftLookups(draft);
   const onBehalfOf = actingAsUserId ?? undefined;
 
   const act = (action: DraftActionBody) =>
     command.mutate({ action: { ...action, onBehalfOf } });
   const actOnPoolRow = (pickable: PoolPickable) => {
-    if (canPick) act({ action: "pick", pickableId: pickable.id });
-    else if (selectedSwapOutId !== null) {
+    if (selectedSwapOutId !== null) {
       act({
         action: "swap",
         pickableOutId: selectedSwapOutId,
         pickableInId: pickable.id,
       });
-    }
+    } else if (canPick) act({ action: "pick", pickableId: pickable.id });
   };
-  const selectSwapOut = (pickable: PoolPickable) => {
+  const selectSwapOut = (pickable: Pickable) => {
     setSwapOutId(pickable.id === selectedSwapOutId ? null : pickable.id);
     setKind(pickable.kind);
   };
@@ -210,7 +210,6 @@ function DraftRoom({
               actorUserId={actorUserId}
             />
           )}
-          <PhaseDots draft={draft} />
         </Box>
         {rejection && (
           <RejectionLabel key={rejection.id} rejection={rejection} />
@@ -246,7 +245,7 @@ function DraftRoom({
           receivedAt={draftQuery.dataUpdatedAt}
           pickablesById={pickablesById}
           teamLogos={teamLogos}
-          swapperUserId={canSwap ? actorUserId : null}
+          swapperUserId={isActorsTurn ? actorUserId : null}
           swapOutId={selectedSwapOutId}
           onSwapOutSelect={selectSwapOut}
         />
@@ -265,7 +264,7 @@ function DraftRoom({
             kind={kind}
             onKindChange={setKind}
             actionLabel={
-              canPick ? "Pick" : selectedSwapOutId !== null ? "Swap" : null
+              selectedSwapOutId !== null ? "Swap" : canPick ? "Pick" : null
             }
             actionPending={command.isPending}
             onAct={actOnPoolRow}

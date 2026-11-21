@@ -1,5 +1,5 @@
 import type { AddressInfo } from "node:net";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type TestAgent from "supertest/lib/agent.js";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import type { DraftActionBody } from "../../shared/api.js";
@@ -12,7 +12,7 @@ import {
 } from "../../shared/entities.js";
 import { seatForTurn } from "../../shared/snake.js";
 import { db } from "../db/client.js";
-import { stagePool } from "../db/schema.js";
+import { matches, pickables, stagePool, stages } from "../db/schema.js";
 import { setDraftRandom } from "../draft/service.js";
 import {
   insertDraftStage,
@@ -148,8 +148,14 @@ async function pickForWhoeverIsOnClock(stageId: number) {
   }).expect(204);
 }
 
-async function finishDraftPhase(stageId: number) {
-  while ((await draftState(stageId)).phase === "draft") {
+const FULL_ROSTER = ROSTER_LIMITS.player + ROSTER_LIMITS.coach;
+
+const isFull = (seat: DraftSeat) =>
+  seat.rosterPickableIds.length === FULL_ROSTER;
+
+// Everyone picks on every turn, so all rosters fill on the same turn.
+async function fillRosters(stageId: number) {
+  while (!(await draftState(stageId)).seats.every(isFull)) {
     await pickForWhoeverIsOnClock(stageId);
   }
 }
@@ -205,8 +211,6 @@ describe("draft setup", () => {
     const state = await draftState(stageId);
     expect(state).toMatchObject({
       status: "drafting",
-      phase: "draft",
-      round: 0,
       turnNo: 0,
       currentSeat: 0,
     });
@@ -310,7 +314,7 @@ describe("draft actions", () => {
     const coachFirst = seatOnClock(await draftState(stageId)).user.id;
     const rejections: string[] = [];
 
-    while ((await draftState(stageId)).phase === "draft") {
+    while (!(await draftState(stageId)).seats.every(isFull)) {
       const state = await draftState(stageId);
       const seat = seatOnClock(state);
       const kinds = kindsOf(state, seat);
@@ -342,7 +346,7 @@ describe("draft actions", () => {
     expect(rejections).toEqual(["Coach slot full", "Roster full"]);
   });
 
-  test("rejects actions in the wrong phase, while paused and before the start", async () => {
+  test("rejects early locks, picks past a full roster, and actions while paused or before the start", async () => {
     const { stageId: setupStageId, playerIds } = insertDraftStage({
       managerIds: managerIds.slice(0, 2),
       players: 12,
@@ -361,15 +365,7 @@ describe("draft actions", () => {
     const onClock = seatOnClock(state);
     await expectRejected(
       act(stageId, onClock.user.id, { action: "lock" }),
-      "Wrong phase",
-    );
-    await expectRejected(
-      act(stageId, onClock.user.id, {
-        action: "swap",
-        pickableOutId: firstAvailable(state, "player"),
-        pickableInId: firstAvailable(state, "player"),
-      }),
-      "Wrong phase",
+      "Roster incomplete",
     );
 
     await control(stageId, "pause").expect(204);
@@ -387,21 +383,39 @@ describe("draft actions", () => {
     await control(stageId, "resume").expect(204);
     expect((await draftState(stageId)).turnDeadline).not.toBeNull();
 
-    await finishDraftPhase(stageId);
-    const swapState = await draftState(stageId);
-    expect(swapState).toMatchObject({ phase: "swap", round: 6 });
+    await fillRosters(stageId);
+    const fullState = await draftState(stageId);
     await expectRejected(
-      act(stageId, seatOnClock(swapState).user.id, {
+      act(stageId, seatOnClock(fullState).user.id, {
         action: "pick",
-        pickableId: firstAvailable(swapState, "player"),
+        pickableId: firstAvailable(fullState, "player"),
       }),
-      "Wrong phase",
+      "Roster full",
     );
+  });
+
+  test("a swap works before the roster is full", async () => {
+    const { stageId } = await startedStage({ managers: 2 });
+    await pickForWhoeverIsOnClock(stageId);
+    await pickForWhoeverIsOnClock(stageId);
+    await pickForWhoeverIsOnClock(stageId);
+    const state = await draftState(stageId);
+    const swapper = seatOnClock(state);
+    const [released] = swapper.rosterPickableIds;
+    const freePlayer = firstAvailable(state, "player");
+    await act(stageId, swapper.user.id, {
+      action: "swap",
+      pickableOutId: released as number,
+      pickableInId: freePlayer,
+    }).expect(204);
+    expect(
+      seatOf(await draftState(stageId), swapper.user.id).rosterPickableIds,
+    ).toEqual([freePlayer]);
   });
 
   test("swaps keep the kind, release the old pick and keep the slot", async () => {
     const { stageId } = await startedStage({ managers: 2 });
-    await finishDraftPhase(stageId);
+    await fillRosters(stageId);
     const state = await draftState(stageId);
     const swapper = seatOnClock(state);
     const other = state.seats.find((s) => s !== swapper) as DraftSeat;
@@ -459,7 +473,7 @@ describe("draft actions", () => {
 
   test("locks out of turn, skips locked seats and completes when all are locked", async () => {
     const { stageId } = await startedStage({ managers: 3 });
-    await finishDraftPhase(stageId);
+    await fillRosters(stageId);
     const state = await draftState(stageId);
     const onClock = seatOnClock(state);
     const early = state.seats.find((s) => s !== onClock) as DraftSeat;
@@ -519,7 +533,7 @@ describe("undo", () => {
     ).toBe(true);
     expect(afterPickUndo.recentActions).toEqual([]);
 
-    await finishDraftPhase(stageId);
+    await fillRosters(stageId);
     const beforeSwap = await draftState(stageId);
     const swapper = seatOnClock(beforeSwap);
     await act(stageId, swapper.user.id, {
@@ -580,7 +594,6 @@ describe("turn timer", () => {
       vi.advanceTimersByTime(pickSeconds * 1000);
     }
     const drafted = await draftState(fixture.stageId);
-    expect(drafted.phase).toBe("swap");
     for (const seat of drafted.seats) {
       const kinds = kindsOf(drafted, seat);
       expect(kinds.filter((k) => k === "player")).toHaveLength(5);
@@ -636,7 +649,7 @@ describe("scripted 8-manager draft over HTTP", () => {
     );
 
     const swapState = await draftState(stageId);
-    expect(swapState.phase).toBe("swap");
+    expect(swapState.seats.every(isFull)).toBe(true);
     const swapper = seatOnClock(swapState);
     await act(stageId, swapper.user.id, {
       action: "swap",
@@ -655,6 +668,143 @@ describe("scripted 8-manager draft over HTTP", () => {
     expect(state.seats.every((s) => s.rosterPickableIds.length === 6)).toBe(
       true,
     );
+  });
+});
+
+describe("stage carry-over", () => {
+  test("the next stage keeps advancing picks, drops eliminated ones and reverses the seats", async () => {
+    const first = await startedStage({ managers: 3 });
+    const tournamentId = first.tournamentId;
+    db.update(stages)
+      .set({ vlrStageKeysJson: [`stage-${first.stageId}`] })
+      .where(eq(stages.id, first.stageId))
+      .run();
+    const lastMatch = db
+      .insert(matches)
+      .values({
+        tournamentId,
+        vlrId: `carry-${first.stageId}`,
+        stageKey: `stage-${first.stageId}`,
+        bestOf: 3,
+        status: "upcoming",
+      })
+      .returning()
+      .get();
+
+    // Stage 2 holds two of stage 1's four teams plus a directly seeded one.
+    const pickableRows = db
+      .select()
+      .from(pickables)
+      .where(inArray(pickables.id, [...first.playerIds, ...first.coachIds]))
+      .all();
+    const [advancedA, advancedB] = [
+      ...new Set(pickableRows.map((p) => p.teamId)),
+    ];
+    const advancing = pickableRows.filter(
+      (p) => p.teamId === advancedA || p.teamId === advancedB,
+    );
+    const seededKinds = [
+      ...Array<"player">(8).fill("player"),
+      "coach" as const,
+    ];
+    const seededIds = seededKinds.map(
+      (kind, n) =>
+        db
+          .insert(pickables)
+          .values({
+            kind,
+            handle: `seeded-${first.stageId}-${n}`,
+            teamId: advancedA as number,
+            photoImageId: advancing[0]?.photoImageId as number,
+          })
+          .returning()
+          .get().id,
+    );
+    const second = db
+      .insert(stages)
+      .values({ tournamentId, name: "Playoffs", position: 1, source: "manual" })
+      .returning()
+      .get();
+    db.insert(stagePool)
+      .values(
+        [...advancing.map((p) => p.id), ...seededIds].map((pickableId) => ({
+          stageId: second.id,
+          pickableId,
+        })),
+      )
+      .run();
+
+    await fillRosters(first.stageId);
+    await expectRejected(
+      control(second.id, "start"),
+      "Previous stage unfinished",
+    );
+    for (const seat of (await draftState(first.stageId)).seats) {
+      await act(first.stageId, seat.user.id, { action: "lock" }).expect(204);
+    }
+    const firstDone = await draftState(first.stageId);
+    expect(firstDone.status).toBe("complete");
+    await expectRejected(
+      control(second.id, "start"),
+      "Previous stage unfinished",
+    );
+    db.update(matches)
+      .set({ status: "completed" })
+      .where(eq(matches.id, lastMatch.id))
+      .run();
+
+    const advancingIds = new Set(advancing.map((p) => p.id));
+    const preview = await draftState(second.id);
+    expect(preview.seats.map((s) => s.user.id)).toEqual(
+      firstDone.seats.map((s) => s.user.id).reverse(),
+    );
+    for (const seat of preview.seats) {
+      const before = seatOf(firstDone, seat.user.id).rosterPickableIds;
+      expect(seat.rosterPickableIds).toEqual(
+        before.filter((id) => advancingIds.has(id)),
+      );
+      expect(seat.droppedPickables.map((p) => p.id)).toEqual(
+        before.filter((id) => !advancingIds.has(id)),
+      );
+    }
+    expect(preview.seats.some((s) => s.droppedPickables.length > 0)).toBe(true);
+    for (const seat of preview.seats) {
+      for (const id of seat.rosterPickableIds) {
+        expect(preview.pool.find((p) => p.id === id)?.ownerUserId).toBe(
+          seat.user.id,
+        );
+      }
+    }
+
+    await control(second.id, "start").expect(204);
+    const started = await draftState(second.id);
+    expect(started.seats.map((s) => s.user.id)).toEqual(
+      preview.seats.map((s) => s.user.id),
+    );
+    for (const seat of started.seats) {
+      expect(seat.rosterPickableIds).toEqual(
+        seatOf(preview, seat.user.id).rosterPickableIds,
+      );
+      expect(seat.droppedPickables).toEqual([]);
+    }
+    await expectRejected(control(second.id, "undo"), "Nothing to undo");
+
+    // Carried rosters differ in size, so a full one locks while the others still fill.
+    let state = started;
+    while (state.status === "drafting") {
+      const seat = seatOnClock(state);
+      if (isFull(seat)) {
+        await act(second.id, seat.user.id, { action: "lock" }).expect(204);
+      } else {
+        await pickForWhoeverIsOnClock(second.id);
+      }
+      state = await draftState(second.id);
+    }
+    expect(state.seats.every(isFull)).toBe(true);
+    expect(state.status).toBe("complete");
+    expect(
+      (await draftState(first.stageId)).seats.map((s) => s.rosterPickableIds),
+    ).toEqual(firstDone.seats.map((s) => s.rosterPickableIds));
   });
 });
 

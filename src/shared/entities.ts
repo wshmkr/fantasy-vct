@@ -97,8 +97,6 @@ export const DRAFT_ACTION_KINDS = ["pick", "swap", "lock"] as const;
 export type DraftActionKind = (typeof DRAFT_ACTION_KINDS)[number];
 
 export type TournamentStatus = "upcoming" | "drafting" | "live" | "ended";
-export type DraftPhase = "draft" | "swap";
-
 export interface User {
   id: number;
   role: UserRole;
@@ -200,12 +198,26 @@ export const ROSTER_LIMITS: Record<PickableKind, number> = {
   coach: 1,
 };
 
+export function hasRoomFor(kinds: PickableKind[], kind: PickableKind): boolean {
+  return kinds.filter((k) => k === kind).length < ROSTER_LIMITS[kind];
+}
+
+export function isRosterFull(kinds: PickableKind[]): boolean {
+  return PICKABLE_KINDS.every((kind) => !hasRoomFor(kinds, kind));
+}
+
 export interface DraftSeat {
   seat: number;
   user: User;
   color: ManagerColor;
   locked: boolean;
   rosterPickableIds: number[];
+  // Only in setup: previous-stage picks the carry-over will drop.
+  droppedPickables: DroppedPickable[];
+}
+
+export interface DroppedPickable extends Pickable {
+  teamLogoImageId: number | null;
 }
 
 export interface DraftAction {
@@ -225,8 +237,6 @@ export interface PoolPickable extends ScoredPickable {
 export interface DraftState {
   stageId: number;
   status: StageStatus;
-  phase: DraftPhase;
-  round: number;
   turnNo: number;
   pickSeconds: number;
   seats: DraftSeat[];

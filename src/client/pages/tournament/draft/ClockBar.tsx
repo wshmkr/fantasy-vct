@@ -12,16 +12,7 @@ import {
   displayNameOf,
   isDraftRunning,
 } from "@shared/entities";
-import { DRAFT_ROUNDS } from "@shared/snake";
-import {
-  ArrowLeftRight,
-  Check,
-  Pause,
-  Play,
-  Shuffle,
-  Undo2,
-  UserCheck,
-} from "lucide-react";
+import { Check, Pause, Play, Shuffle, Undo2, UserCheck } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import ErrorLabel from "../../../components/ErrorLabel";
 import LiquidLens, { useLensRect } from "../../../components/LiquidLens";
@@ -163,68 +154,6 @@ export function CompleteBadge() {
         <Check size={16} strokeWidth={2.4} />
       </Box>
     </Tooltip>
-  );
-}
-
-export function PhaseDots({
-  draft,
-}: {
-  draft: Pick<DraftState, "status" | "phase" | "round">;
-}) {
-  const hasStarted = draft.status !== "setup";
-  const isSwapping = draft.phase === "swap" || draft.status === "complete";
-  const roundDots = Array.from({ length: DRAFT_ROUNDS }, (_, round) => round);
-  return (
-    <Box
-      role="img"
-      aria-label={isSwapping ? "Swap phase" : `Round ${draft.round + 1}`}
-      sx={{ display: "flex", alignItems: "center", gap: "5px" }}
-    >
-      {roundDots.map((round) => {
-        const isDone = isSwapping || (hasStarted && round < draft.round);
-        const isCurrent = hasStarted && !isSwapping && round === draft.round;
-        return (
-          <Box
-            key={round}
-            sx={[
-              {
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                bgcolor: "#ffffff1f",
-              },
-              isDone && { bgcolor: "var(--accent)" },
-              isCurrent && {
-                bgcolor: "transparent",
-                boxShadow: "inset 0 0 0 2px var(--accent)",
-              },
-            ]}
-          />
-        );
-      })}
-      <Box
-        sx={[
-          {
-            width: 18,
-            height: 18,
-            ml: "3px",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--ink-muted)",
-            boxShadow: "inset 0 0 0 1.5px #ffffff26",
-          },
-          isSwapping && {
-            color: "var(--on-accent)",
-            bgcolor: "var(--accent)",
-            boxShadow: "none",
-          },
-        ]}
-      >
-        <ArrowLeftRight size={11} strokeWidth={2.6} aria-hidden />
-      </Box>
-    </Box>
   );
 }
 

@@ -5,8 +5,10 @@ import Typography from "@mui/material/Typography";
 import {
   type DraftSeat,
   type DraftState,
+  type DroppedPickable,
   displayNameOf,
   isDraftRunning,
+  type Pickable,
   type PoolPickable,
   ROSTER_LIMITS,
 } from "@shared/entities";
@@ -16,7 +18,7 @@ import ManagerAvatar from "../../../components/ManagerAvatar";
 import Pane from "../../../components/Pane";
 import PlayerPhoto from "../../../components/PlayerPhoto";
 import { GlowingAvatar } from "./ClockBar";
-import { PLAYER_SLOTS, seatRoster } from "./draftView";
+import { PLAYER_SLOTS, seatRoster, splitRoster } from "./draftView";
 import { flipIn, riseIn } from "./motion";
 import { useSecondsLeft } from "./useSecondsLeft";
 
@@ -44,21 +46,27 @@ function useEntrance(pickableId: number | null) {
   return shown.entrance;
 }
 
+interface CellPick {
+  pickable: Pickable;
+  teamLogoImageId: number | null;
+  // Eliminated in the previous stage; the carry-over drops it when this draft starts.
+  isDropped: boolean;
+}
+
 function BoardCell({
-  pickable,
-  teamLogoImageId,
+  pick,
   seat,
   highlight,
   isCoachSlot,
   onSelect,
 }: {
-  pickable: PoolPickable | undefined;
-  teamLogoImageId: number | null;
+  pick: CellPick | undefined;
   seat: DraftSeat;
   highlight: CellHighlight;
   isCoachSlot: boolean;
   onSelect: (() => void) | undefined;
 }) {
+  const pickable = pick?.pickable;
   const entrance = useEntrance(pickable?.id ?? null);
   const color = `var(--${seat.color})`;
   return (
@@ -66,7 +74,9 @@ function BoardCell({
       component={onSelect ? ButtonBase : "div"}
       onClick={onSelect}
       aria-pressed={onSelect ? highlight === "selected" : undefined}
-      aria-label={pickable?.handle}
+      aria-label={
+        pick?.isDropped ? `${pickable?.handle} dropped` : pickable?.handle
+      }
       title={pickable?.handle}
       sx={[
         {
@@ -86,7 +96,7 @@ function BoardCell({
           transition: "box-shadow 150ms ease-out, background-color 150ms",
         },
         isCoachSlot && { ml: COACH_GAP },
-        pickable !== undefined && {
+        pick?.isDropped === false && {
           bgcolor: `color-mix(in srgb, ${color} 16%, transparent)`,
           boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 45%, transparent)`,
         },
@@ -115,17 +125,22 @@ function BoardCell({
             gap: "8px",
             minWidth: 0,
             animation: entrance ?? undefined,
+            opacity: pick?.isDropped ? 0.4 : undefined,
           }}
         >
           <PlayerPhoto
             photoImageId={pickable.photoImageId}
-            teamLogoImageId={teamLogoImageId}
+            teamLogoImageId={pick?.teamLogoImageId ?? null}
             size={26}
           />
           <Typography
             variant="bodyStrong"
             noWrap
-            sx={{ minWidth: 0, fontSize: 13 }}
+            sx={{
+              minWidth: 0,
+              fontSize: 13,
+              textDecoration: pick?.isDropped ? "line-through" : undefined,
+            }}
           >
             {pickable.handle}
           </Typography>
@@ -201,7 +216,7 @@ interface DraftBoardProps {
   teamLogos: ReadonlyMap<number, number | null>;
   swapperUserId: number | null;
   swapOutId: number | null;
-  onSwapOutSelect: (pickable: PoolPickable) => void;
+  onSwapOutSelect: (pickable: Pickable) => void;
 }
 
 export default function DraftBoard({
@@ -235,32 +250,46 @@ export default function DraftBoard({
       </Box>
       {draft.seats.map((seat) => {
         const { players, coach } = seatRoster(seat, pickablesById);
+        const dropped = splitRoster(seat.droppedPickables, (p) => p.kind);
+        const kept = (pickable: PoolPickable): CellPick => ({
+          pickable,
+          teamLogoImageId: teamLogos.get(pickable.teamId) ?? null,
+          isDropped: false,
+        });
+        const droppedPick = (pickable: DroppedPickable): CellPick => ({
+          pickable,
+          teamLogoImageId: pickable.teamLogoImageId,
+          isDropped: true,
+        });
+        const playerPicks = [
+          ...players.map(kept),
+          ...dropped.players.map(droppedPick),
+        ];
+        const coachPick = coach
+          ? kept(coach)
+          : dropped.coach && droppedPick(dropped.coach);
         const isOnClock =
           isDraftRunning(draft.status) && seat.seat === draft.currentSeat;
-        const nextSlot =
-          isOnClock && draft.phase === "draft"
-            ? Math.min(players.length, ROSTER_LIMITS.player)
-            : null;
+        const nextSlot = isOnClock
+          ? Math.min(players.length, ROSTER_LIMITS.player)
+          : null;
         const canSwapOut = seat.user.id === swapperUserId;
-        const cell = (pickable: PoolPickable | undefined, slot: number) => (
+        const cell = (pick: CellPick | undefined, slot: number) => (
           <BoardCell
             key={slot}
-            pickable={pickable}
-            teamLogoImageId={
-              pickable ? (teamLogos.get(pickable.teamId) ?? null) : null
-            }
+            pick={pick}
             seat={seat}
             isCoachSlot={slot === ROSTER_LIMITS.player}
             highlight={
-              pickable && pickable.id === swapOutId
+              pick && pick.pickable.id === swapOutId
                 ? "selected"
-                : !pickable && slot === nextSlot
+                : !pick && slot === nextSlot
                   ? "next"
                   : null
             }
             onSelect={
-              canSwapOut && pickable
-                ? () => onSwapOutSelect(pickable)
+              canSwapOut && pick && !pick.isDropped
+                ? () => onSwapOutSelect(pick.pickable)
                 : undefined
             }
           />
@@ -289,8 +318,8 @@ export default function DraftBoard({
               receivedAt={receivedAt}
               isOnClock={isOnClock}
             />
-            {PLAYER_SLOTS.map((slot) => cell(players[slot], slot))}
-            {cell(coach, ROSTER_LIMITS.player)}
+            {PLAYER_SLOTS.map((slot) => cell(playerPicks[slot], slot))}
+            {cell(coachPick, ROSTER_LIMITS.player)}
           </Box>
         );
       })}

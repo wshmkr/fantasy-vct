@@ -501,7 +501,8 @@ function addNewStages(
   }
 }
 
-// A stage's pool is the rosters of the teams in its matches, or every team while any slot is TBD.
+// A stage's pool is the rosters of the teams named in its matches, or every team while none are.
+// TBD slots don't widen it: a bracket's later rounds stay TBD long after its teams are known.
 export function reseedSetupPools(tx: Transaction, tournamentId: number) {
   const setupStages = tx
     .select({ id: stages.id, keys: stages.vlrStageKeysJson })
@@ -550,14 +551,13 @@ export function reseedSetupPools(tx: Transaction, tournamentId: number) {
               ),
             )
             .all();
-    const teamSlots = stageMatches.flatMap((match) => [
-      match.team1Id,
-      match.team2Id,
-    ]);
+    const namedTeamIds = new Set(
+      stageMatches.flatMap((match) =>
+        [match.team1Id, match.team2Id].filter((teamId) => teamId !== null),
+      ),
+    );
     const stageTeamIds =
-      teamSlots.length === 0 || teamSlots.includes(null)
-        ? allTeamIds
-        : [...new Set(teamSlots.filter((teamId) => teamId !== null))];
+      namedTeamIds.size === 0 ? allTeamIds : [...namedTeamIds];
     const pickableIds = stageTeamIds.flatMap(
       (teamId) => rosterIdsByTeamId.get(teamId) ?? [],
     );

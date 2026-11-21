@@ -28,14 +28,14 @@ Keep it **as simple as possible**. There are about 8 users, so build nothing for
 | Access | Only Discord users the commissioner has added can log in. The commissioner is set by env (§4.3). |
 | Tournaments | Only the commissioner adds tournaments. Every allowed user can see every tournament. |
 | Joining | Users **join** a tournament themselves (picking their color as they join), up to 8. Only joined users are managers. Joining stays open until the commissioner **closes** it; starting a stage's draft closes it automatically, which locks in exactly who's playing. The commissioner can remove a manager or reopen joining. Anything odder gets fixed in the database (§2.0). |
-| Stages | **Created automatically from the stages listed on the VLR event page.** Each stage has its own draft (a redraft between stages). Tournament total = sum of stage totals. |
+| Stages | **Created automatically from the stages listed on the VLR event page.** Each stage has its own draft. Tournament total = sum of stage totals. |
+| Carry-over | Rosters carry into the next stage. When its draft starts, each manager keeps their previous-stage picks whose team made it into the new stage's pool; eliminated picks drop and leave empty slots. Before the start, the Draft tab previews this with the dropped picks struck out. The next stage can't start until the previous stage's draft and matches are all complete. |
 | Roster | **5 players + 1 coach.** **No roles**: many pros play several roles now, so the app never tracks or enforces them. |
 | Coaches | Each team's head coach is in the draft pool. If VLR lists no coach for a team, create a placeholder named "`<Team name>` Coach" (capital C, for example "Sentinels Coach"). Coaches score from their team's results (scoring table below). |
 | Subs | Subs aren't in the pool. When a sub plays a map in place of one of the team's pool players, the sub's stats for that map count for the player they replaced (§4.5). The app pairs them when it's unambiguous; otherwise the commissioner assigns the sub on the match. |
 | Swiss stages | Plain sums, like every other format: a pick scores the series its team actually plays. A 3-0 team plays fewer series than a 3-2 team, but losses score close to nothing (players average −3 in a 0-2 and 31 in a 1-2), so the totals come out about even. No adjustment. |
 | Ownership | A player or coach can be on at most one roster per stage. No limit on picks from the same team. |
-| Draft phase | Live snake draft. Order randomized per stage. **6 rounds**: each manager picks 5 players and 1 coach, with the coach in any round. Running out the clock **autopicks a random legal choice**. |
-| Swap phase | After round 6 the snake keeps going. On your turn you either **swap** one of your rostered picks for an available one of the same kind (player for player, coach for coach), or **lock**. A swap ends your turn, and the released pick goes straight back into the pool. Locked managers are skipped. Running out the clock in this phase **locks your roster**. The draft ends when every manager has locked. |
+| Draft | Live snake draft, **one flow for every stage**. Seat order: random for the first stage, then the previous stage's order reversed. On your turn you **pick** into an empty slot, **swap** one of your picks for an available one of the same kind (player for player, coach for coach), or **lock** (only with a full roster: 5 players + 1 coach, the coach in any slot order). A swap's released pick goes straight back into the pool. Locked managers are skipped. Running out the clock **autopicks a random legal choice** if you have an empty slot, otherwise **locks your roster**. The draft ends when every manager has locked. |
 | Manager color | Each manager picks one of 16 preset colors per tournament. It can't repeat within a tournament. |
 | Scale | Up to **8 managers** per tournament and up to **16 teams** (about 96 pickables). Every screen must fit that comfortably on a desktop screen. |
 | Progress | A tournament's progress is matches played ÷ total matches, from the VLR schedule (upcoming matches included). |
@@ -63,7 +63,7 @@ A pickable's stage points are its points in every match of that stage, regardles
 ### 1.1a Settled with the user (don't propose these again)
 
 - **No deployment in Checkpoint 1.** Everything runs locally. Deployment is decided at re-planning.
-- **The swap phase is uncapped.** There's no limit on swap rounds or swaps per manager, and the group agrees not to swap endlessly. It ends when everyone has locked, either themselves or by timeout. Swap turns use the same `pick_seconds` timer.
+- **Swaps are uncapped.** There's no limit on swaps per manager, and the group agrees not to swap endlessly. The draft ends when everyone has locked, either themselves or by timeout. Every turn uses the same `pick_seconds` timer.
 - **VLR stays the data source** under the §2.5 etiquette (minimal, cached requests). Don't suggest other sources.
 - **The user creates the Discord app** later. Until then, use the dev login (§4.3); don't ask for credentials during Checkpoint 1.
 - **No backups for now.**
@@ -72,7 +72,7 @@ A pickable's stage points are its points in every match of that stage, regardles
 
 ### 1.2 Open questions (use these defaults, and flag them in the checkpoint report)
 
-- **Locking out of turn:** allowed. A manager with a full roster can lock at any time during the swap phase, not only on their turn.
+- **Locking out of turn:** allowed. A manager with a full roster can lock at any time during the draft, not only on their turn.
 - **Re-drafting a released pick:** allowed. A pick released in a swap is a normal available pick, even for the manager who released it.
 - **Form window:** form stats and top 3 agents come from each player's VLR page over the **last 90 days**. If the page doesn't offer 90 days, use the closest window it has.
 - **Stats data source:** VLR stays the source. It's the only free source with multi-kills and per-player clutches, but its terms of service forbid bots and systematic scraping, so keep requests minimal and cached (§2.5). Liquipedia's LPDB API is a possible later source for schedules and rosters (its rows carry VLR ids). Keep all VLR parsing behind `src/server/vlr/` so a source can be swapped later.
@@ -334,13 +334,13 @@ Rules:
 
 ### 4.2 Draft engine
 
-**Turn order.** It's a snake over N seats. Turn numbers start at 0 and keep counting past round 6 into the swap phase.
+**Turn order.** It's a snake over N seats with no phases: turn numbers start at 0 and keep counting until everyone has locked.
 ```ts
 round = Math.floor(turnNo / N)
 seat  = round % 2 === 0 ? turnNo % N : N - 1 - (turnNo % N)
-phase = round < 6 ? 'draft' : 'swap'
 ```
-- **Advancing the turn** means incrementing `current_turn_no` until it lands on an unlocked manager's seat (only swap-phase seats can be locked).
+- **Seats:** the first stage shuffles; a later stage reverses the previous stage's seats when the same managers sat there, otherwise it shuffles. The commissioner's shuffle still randomizes.
+- **Advancing the turn** means incrementing `current_turn_no` until it lands on an unlocked manager's seat.
 - When every manager is locked, set status to `complete`, clear the deadline and stop.
 - Each turn sets `turn_deadline = now + pick_seconds`.
 
@@ -348,16 +348,16 @@ phase = round < 6 ? 'draft' : 'swap'
 
 | Action | Body | Allowed when | Effect |
 |---|---|---|---|
-| `pick` | `{ pickableId }` | Draft phase, your turn, pickable in the pool and unowned, your composition has room for its kind | Add the roster entry, log it, advance the turn |
-| `swap` | `{ pickableOutId, pickableInId }` | Swap phase, your turn, you own `out`, `in` is available, same kind | Replace the entry, log it, advance the turn |
-| `lock` | `{}` | Swap phase, your roster is full (5 + 1), you're not locked. Allowed out of turn (§1.2). | Set `locked_at`, log it. If it was your turn, advance the turn. If everyone is now locked, set `complete`. |
+| `pick` | `{ pickableId }` | Your turn, pickable in the pool and unowned, your composition has room for its kind | Add the roster entry, log it, advance the turn |
+| `swap` | `{ pickableOutId, pickableInId }` | Your turn, you own `out`, `in` is available, same kind | Replace the entry, log it, advance the turn |
+| `lock` | `{}` | Your roster is full (5 + 1), you're not locked. Allowed out of turn (§1.2). | Set `locked_at`, log it. If it was your turn, advance the turn. If everyone is now locked, set `complete`. |
 
 - The commissioner may add `onBehalfOf: userId` to any action.
 - **Rejections** return 400 with a short message of 3 words or fewer ("Not your turn"), which the client shows as-is. No error-code catalog.
 
 **Timer.** There's a server `setTimeout` per stage in `drafting`. When it fires:
-- **in the draft phase**, it picks a **uniformly random legal pickable** for the manager on the clock: any available pickable whose kind still has room in their roster. Inject the RNG so tests can seed it.
-- **in the swap phase**, it **locks** that manager.
+- **with an empty slot**, it picks a **uniformly random legal pickable** for the manager on the clock: any available pickable whose kind still has room in their roster. Inject the RNG so tests can seed it.
+- **with a full roster**, it **locks** that manager.
 - either way, the action is logged with `auto = true`.
 
 Timers aren't rebuilt after a server restart. If one happens mid-draft, the commissioner presses pause, then resume.
@@ -365,16 +365,16 @@ Timers aren't rebuilt after a server restart. If one happens mid-draft, the comm
 **SSE.** `GET /api/stages/:id/draft/stream` sends only `event: changed`. The client refetches the draft state; there's no client-side merging. Send a heartbeat comment every 25s.
 
 **Draft state** (`GET /api/stages/:id/draft`):
-- status, phase and round
+- status
 - seats, with user, avatar, color and `locked`
-- each manager's roster
+- each manager's roster; in `setup`, the carry-over preview (kept picks as the roster, plus the dropped picks)
 - the pool, with owner flags, photos, team logos and form stats
 - the current seat, the deadline, and the server's current time
 - the last 10 actions
 
 **Commissioner controls:**
 - randomize seats (`setup` only)
-- start (only once joining is closed, or it closes it; needs at least 2 joined managers)
+- start (only once joining is closed, or it closes it; needs at least 2 joined managers; a later stage also needs the previous stage's draft complete and all its matches completed). Starting copies the carried picks into `roster_entries`, in the previous roster's slot order. They aren't logged as draft actions, so undo never removes them.
 - pause / resume (pause clears the deadline; resume sets a fresh one)
 - **undo**: pops the last `draft_actions` row, reverses its effect (removes the pick, reverses the swap, or unlocks), restores `current_turn_no = turn_no_before`, sets a fresh deadline, and moves `complete` back to `drafting` if needed
 - act on behalf of a manager
@@ -433,7 +433,7 @@ Pasting an event link runs the whole import, with a progress indicator. There's 
    - Upsert `teams` and `pickables`, and link them in `tournament_teams`.
    - Create one `stages` row per VLR stage: `source = vlr`, `vlr_stage_keys_json = [key]`, `position` in VLR's order, status `setup`.
    - If VLR shows no stage list, create a single stage named after the event.
-7. **Seed each stage's pool** with the players and coaches of the teams known to play in that stage. A stage whose teams aren't decided yet (TBD) gets every tournament team.
+7. **Seed each stage's pool** with the players and coaches of the teams named in that stage's matches. TBD slots don't widen it: a playoff bracket's later rounds are always TBD, and its pool must still be only the teams that made it. A stage with no named teams yet gets every tournament team.
 8. **Seed `stage_managers`** from the joined managers when a stage's draft starts. Starting closes joining.
 
 **Re-import** (an icon button in Settings):
@@ -673,7 +673,7 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
 ### 5.5 Draft room (the Draft tab)
 
 ```
-┌ [Stage 1][Playoffs]       (◉ glow) 0:42   ●●○○○○ ⇄        [Lock] │ ⏸ ↶ 👤✓ ┐ ← on-the-clock bar
+┌ [Stage 1][Playoffs]       (◉ glow) 0:42                   [Lock] │ ⏸ ↶ 👤✓ ┐ ← on-the-clock bar
 ├──────────────── board (≈58%) ───────────────────┬────── pool (≈42%) ────────┤
 │       1        2        3        4       5    📋 │ [🔍 search     /] [👤|📋] │
 │ (J) [◐Less ] [◐Ethan] [◐trent] [     ] [    ] [ ]│ [S][G][N][1]… 16 toggles  │
@@ -689,8 +689,7 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
 - **On-the-clock bar:**
   - a stage switcher (lens pill)
   - the current manager's avatar with `shadow-glow`, and a countdown computed against server time
-  - phase dots: 6 rounds, then ⇄ for the swap phase
-  - **Lock** (accent button) in the swap phase, once your roster is full
+  - **Lock** (accent button) once your roster is full
   - the commissioner's icon controls at the right end: pause/resume, undo, act-as (avatar menu); shuffle and **Start** before the draft begins
 - **Board** (about 58% width):
   - **one row per manager**, in seat order, so 8 managers fit
@@ -700,20 +699,21 @@ There is **no sidebar and no top bar**. The app has two places: **Home** (browse
   - the on-the-clock row is tinted and its avatar glows
   - a swap flips the cell in place
   - a locked row dims and gets a small lock badge on the avatar
+  - **in `setup` of a later stage:** each row previews the carried roster; dropped picks sit in their slots dimmed and struck through, and become empty slots when the draft starts
 - **Pool** (about 42% width, `pane-dense`), available pickables only (taken ones are hidden):
   - **Search** by handle or team; `/` focuses it.
   - **Kind toggle:** players or coaches (lens pill).
   - **Team filter:** one row of 16 compact team-logo toggles. Several can be selected, and none selected means all teams.
-  - **Sort:** click a column header (`PLAYER` A–Z, `PTS`, `RTG`, `ACS`, `K/D`). `PTS` is tournament points so far (checkpoint 2), so later stages' redrafts can use it. The default is PTS descending once any points exist, otherwise RTG descending; nulls sort last.
+  - **Sort:** click a column header (`PLAYER` A–Z, `PTS`, `RTG`, `ACS`, `K/D`). `PTS` is tournament points so far (checkpoint 2), so later stages' drafts can use it. The default is PTS descending once any points exist, otherwise RTG descending; nulls sort last.
   - **Rows** are 42px: PlayerPhoto, handle, 3 agent icons, a VLR link on hover, then the stats in mono.
   - Keyboard: ↑/↓ moves through rows, and Enter acts on the selected one.
 - **Acting on your turn:**
-  - **Draft phase:** select a row, then press **Pick** (inline in that row).
-  - **Swap phase:**
+  - **Pick** (with an empty slot of the pool's kind): select a row, then press **Pick** (inline in that row).
+  - **Swap:**
     1. Click one of your cells. It gets an accent outline, and the pool switches to that kind.
     2. Select a row and press **Swap**.
 
-    Or press **Lock** at any time.
+    Or press **Lock** at any time once your roster is full.
   - When it isn't your turn, there are no action buttons and the rows are read-only.
 - **Recent actions strip:** avatar plus a Lucide icon (a dot for a pick, `arrow-left-right`, `lock`, plus `clock` for timeouts) plus the handle. No sentences.
 
@@ -1054,6 +1054,24 @@ Packages run in order unless marked **‖ parallel-safe**. Each one goes through
 
 *Accept:* the tests pass, and on the dev DB a forfeit (from the fixture, if the current event has none) shows correctly on the Matches tab and in standings. Report how many points dropping phantom series moved for each manager in the current tournament. Don't deploy without asking.
 
+**3.2 Stage carry-over and one draft flow.** Covers the §1.1 *Carry-over* and *Draft* rows, §4.2, §4.4 step 7 and §5.5. No migration.
+- **Pool:** `reseedSetupPools` uses the teams named in the stage's matches, and every team only when none are named.
+- **Carry-over** (`draft/carry-over.ts`): the previous stage is the one with the next-lower `position` in the tournament. Its roster entries (rowid order) split into kept (in this stage's pool, not removed) and dropped. The setup state shows both; `start` inserts the kept ones.
+- **Start guard:** "Previous stage unfinished" until the previous stage is `complete` and every match in it is completed.
+- **Seats:** reversed previous seats when the managers match (also in the setup preview), otherwise shuffled.
+- **One flow:** drop `phaseForTurn`, `DRAFT_ROUNDS`, `DraftPhase` and the state's `phase`/`round`. Pick and swap need only your turn; lock needs a full roster. The timeout autopicks with an empty slot and locks with a full roster.
+- **Client:** Pick shows when you have room for the pool's kind, Swap after selecting one of your cells, Lock once full; the phase dots go; setup rows show struck-through dropped picks.
+
+*Tests:*
+- a two-stage tournament: stage 2's start is refused until stage 1's draft and matches are complete; then each manager keeps exactly their picks from teams in stage 2's pool, in slot order, and the eliminated ones are gone
+- stage 2's setup state previews kept and dropped picks; its seats are stage 1's reversed
+- lock is refused with an empty slot; pick, swap and lock all work in the same turn sequence
+- the timeout autopicks for a manager with an empty slot and locks one with a full roster
+- undo after the start never removes a carried pick
+- a stage whose later matches are TBD pools only the named teams; one with no named teams pools everyone
+
+*Accept:* the tests pass, and on the dev DB a two-stage tournament (e.g. Champions 2026, re-imported for full rosters) drafts stage 1, then stage 2 starts with eliminated picks dropped and fills to complete. Don't deploy without asking.
+
 ### Out of scope
 
 - mobile layouts
@@ -1098,3 +1116,4 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] Fix: stop auto-retrying matches a day after kickoff (commit ee65da1)
 - [x] 3. Fly.io deploy only, Discord webhooks and extra jobs deferred (commits 70698e6, cba15c8; live at https://fantasy-vct.fly.dev in ewr, 2026-11-20)
 - [x] 3.1 Forfeits, and drop Swiss phantom series (commits 189deb5, 9bbf775)
+- [ ] 3.2 Stage carry-over and one draft flow

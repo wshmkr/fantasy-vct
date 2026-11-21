@@ -2,12 +2,14 @@ import { and, desc, eq } from "drizzle-orm";
 import type { DraftActionBody } from "../../shared/api.js";
 import {
   type DraftControl,
+  hasRoomFor,
+  isRosterFull,
   PICKABLE_KINDS,
   type PickableKind,
   ROSTER_LIMITS,
   type User,
 } from "../../shared/entities.js";
-import { phaseForTurn, seatForTurn } from "../../shared/snake.js";
+import { seatForTurn } from "../../shared/snake.js";
 import { db } from "../db/client.js";
 import {
   draftActions,
@@ -19,6 +21,12 @@ import {
 import { HttpError } from "../error-handler.js";
 import { findStage, requireSetup, type StageRow } from "../stages.js";
 import { tournamentMembersOf } from "../tournament-members.js";
+import {
+  carriedPicks,
+  isStageFinished,
+  previousStageOf,
+  reversedSeats,
+} from "./carry-over.js";
 import { type DraftPoolEntry, draftPool } from "./pool.js";
 import { type SeatRow, seatsMatchJoined, seatsOf } from "./seats.js";
 import { notifyDraftChanged } from "./sse.js";
@@ -116,14 +124,6 @@ function rosterKinds(pool: DraftPoolEntry[], userId: number): PickableKind[] {
     .map((entry) => entry.kind);
 }
 
-function hasRoomFor(kinds: PickableKind[], kind: PickableKind): boolean {
-  return kinds.filter((k) => k === kind).length < ROSTER_LIMITS[kind];
-}
-
-function isRosterFull(kinds: PickableKind[]): boolean {
-  return PICKABLE_KINDS.every((kind) => !hasRoomFor(kinds, kind));
-}
-
 function requireAvailable(
   pool: DraftPoolEntry[],
   pickableId: number,
@@ -198,12 +198,10 @@ export function performDraftAction(
     const seat = seats.find((s) => s.userId === userId);
     if (!seat) throw new HttpError(403, "Not in draft");
     const onClock = seatOnClock(stage, seats)?.userId === userId;
-    const phase = phaseForTurn(stage.currentTurnNo, seats.length);
     const pool = draftPool(stage.id);
 
     switch (body.action) {
       case "pick": {
-        if (phase !== "draft") throw new HttpError(400, "Wrong phase");
         if (!onClock) throw new HttpError(400, "Not your turn");
         const kind = requireAvailable(pool, body.pickableId);
         if (!hasRoomFor(rosterKinds(pool, userId), kind)) {
@@ -216,7 +214,6 @@ export function performDraftAction(
         return;
       }
       case "swap": {
-        if (phase !== "swap") throw new HttpError(400, "Wrong phase");
         if (!onClock) throw new HttpError(400, "Not your turn");
         const out = pool.find((e) => e.pickableId === body.pickableOutId);
         if (!out || out.ownerUserId !== userId) {
@@ -241,7 +238,6 @@ export function performDraftAction(
         return;
       }
       case "lock": {
-        if (phase !== "swap") throw new HttpError(400, "Wrong phase");
         if (seat.lockedAt) throw new HttpError(400, "Already locked");
         if (!isRosterFull(rosterKinds(pool, userId))) {
           throw new HttpError(400, "Roster incomplete");
@@ -254,11 +250,9 @@ export function performDraftAction(
 }
 
 function randomLegalPickableId(
-  stageId: number,
-  userId: number,
+  pool: DraftPoolEntry[],
+  kinds: PickableKind[],
 ): number | undefined {
-  const pool = draftPool(stageId);
-  const kinds = rosterKinds(pool, userId);
   const candidates = pool.filter(
     (entry) => entry.ownerUserId === null && hasRoomFor(kinds, entry.kind),
   );
@@ -272,11 +266,13 @@ function handleTurnTimeout(stageId: number, turnNo: number): void {
     const seats = seatsOf(stage.id);
     const seat = seatOnClock(stage, seats);
     if (!seat) return;
-    if (phaseForTurn(turnNo, seats.length) === "swap") {
+    const pool = draftPool(stage.id);
+    const kinds = rosterKinds(pool, seat.userId);
+    if (isRosterFull(kinds)) {
       applyLock(stage, seat.userId, true, true);
       return;
     }
-    const pickableId = randomLegalPickableId(stage.id, seat.userId);
+    const pickableId = randomLegalPickableId(pool, kinds);
     if (pickableId !== undefined) {
       applyPick(stage, seat.userId, pickableId, true);
       return;
@@ -299,9 +295,8 @@ function shuffled<T>(items: T[]): T[] {
   return result;
 }
 
-function seatJoinedManagers(stage: StageRow): void {
+function seatManagers(stage: StageRow, userIds: number[]): void {
   db.delete(stageManagers).where(eq(stageManagers.stageId, stage.id)).run();
-  const userIds = shuffled(joinedUserIds(stage.tournamentId));
   if (userIds.length === 0) return;
   db.insert(stageManagers)
     .values(
@@ -312,7 +307,27 @@ function seatJoinedManagers(stage: StageRow): void {
 
 function shuffleSeats(stage: StageRow): void {
   requireSetup(stage);
-  seatJoinedManagers(stage);
+  seatManagers(stage, shuffled(joinedUserIds(stage.tournamentId)));
+}
+
+function insertCarriedPicks(
+  stage: StageRow,
+  previous: StageRow,
+  userIds: number[],
+): void {
+  const kept = carriedPicks(previous, stage.id).filter(
+    (pick) => pick.kept && userIds.includes(pick.userId),
+  );
+  if (kept.length === 0) return;
+  db.insert(rosterEntries)
+    .values(
+      kept.map(({ userId, pickableId }) => ({
+        stageId: stage.id,
+        userId,
+        pickableId,
+      })),
+    )
+    .run();
 }
 
 function poolCanFillRosters(stageId: number, managerCount: number): boolean {
@@ -328,10 +343,20 @@ function startDraft(stage: StageRow): void {
   requireSetup(stage);
   const userIds = joinedUserIds(stage.tournamentId);
   if (userIds.length < 2) throw new HttpError(400, "Need 2 managers");
+  const previous = previousStageOf(stage);
+  if (previous && !isStageFinished(previous)) {
+    throw new HttpError(400, "Previous stage unfinished");
+  }
   if (!poolCanFillRosters(stage.id, userIds.length)) {
     throw new HttpError(400, "Pool too small");
   }
-  if (!seatsMatchJoined(seatsOf(stage.id), userIds)) seatJoinedManagers(stage);
+  if (!seatsMatchJoined(seatsOf(stage.id), userIds)) {
+    seatManagers(
+      stage,
+      (previous && reversedSeats(previous, userIds)) ?? shuffled(userIds),
+    );
+  }
+  if (previous) insertCarriedPicks(stage, previous, userIds);
   db.update(tournaments)
     .set({ joiningOpen: false })
     .where(eq(tournaments.id, stage.tournamentId))
