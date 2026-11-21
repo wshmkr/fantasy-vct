@@ -14,6 +14,7 @@ import { type DiscordMessage, discord } from "./client.js";
 import {
   ACCENT_COLOR,
   type ConnectedTournament,
+  column,
   managerLabels,
   type NamedPick,
   namedPickOf,
@@ -77,22 +78,27 @@ function performance({ isCoach, stats }: PostedPick, roundsByMap: number[]) {
   return stats ? `${stats.k}/${stats.d}/${stats.a}` : "DNP";
 }
 
-// "**aspas** · 20/10/5 · **58** · @manager"
-function teamRows(team: PostedTeam) {
+// Discord embeds have no tables, and at most three inline fields share a row, so a team's
+// picks become three columns kept to one line per cell so the rows line up.
+function teamColumns(team: PostedTeam) {
   const picks = team.picks.toSorted(
     (a, b) => Number(a.isCoach) - Number(b.isCoach) || b.points - a.points,
   );
-  return rows(
-    team.heading,
-    picks.map((pick) =>
-      [
-        pickName(pick),
-        performance(pick, team.roundsByMap),
-        `**${pick.points}**`,
-        ...(pick.owner ? [pick.owner] : []),
-      ].join(" · "),
+  return [
+    column(team.heading, picks.map(pickName)),
+    column(
+      "K/D/A",
+      picks.map((pick) => performance(pick, team.roundsByMap)),
     ),
-  );
+    column(
+      "Pts · Manager",
+      picks.map((pick) =>
+        pick.owner
+          ? `**${pick.points}** · ${pick.owner}`
+          : `**${pick.points}**`,
+      ),
+    ),
+  ];
 }
 
 function standingsRows(standings: PostedStanding[]) {
@@ -122,8 +128,8 @@ export function matchPostMessage(post: MatchPost): DiscordMessage {
           .join(" · "),
         color: ACCENT_COLOR,
         fields: [
-          teamRows(post.team1),
-          teamRows(post.team2),
+          ...teamColumns(post.team1),
+          ...teamColumns(post.team2),
           ...standingsRows(post.standings),
         ],
         footer: { text: post.tournamentName },

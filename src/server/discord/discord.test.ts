@@ -232,14 +232,16 @@ describe("Discord", () => {
     expect(others).toEqual([]);
     expect(message?.content).toBeUndefined();
     expect(message?.allowed_mentions).toEqual({ parse: [] });
-    // Mentions are taller than text, so every row is one line rather than columns.
     const fields = message?.embeds[0]?.fields ?? [];
-    expect(fields.every((field) => !field.inline)).toBe(true);
-    const [team1, , standings] = fields;
-    expect(team1?.value).toContain(
-      `[**${drafted.handle}**](${drafted.vlrUrl}) · 20/10/5 · **`,
+    const [players, stats, owners] = fields;
+    const standings = fields.at(-1);
+    expect(players?.value).toContain(
+      `[**${drafted.handle}**](${drafted.vlrUrl})`,
     );
-    expect(team1?.value).toMatch(/\*\*\d+\*\* · <@discord-amy>/);
+    expect(stats?.value).toContain("20/10/5");
+    expect(owners?.value).toMatch(/\*\*\d+\*\* · <@discord-amy>/);
+    // Mentions are taller than text, so a standings row is one line rather than two columns.
+    expect(standings?.inline).toBe(false);
     expect(standings?.value).toMatch(
       /^1\. <@discord-amy> · \*\*\d+\*\* \(\+\d+\)/,
     );
