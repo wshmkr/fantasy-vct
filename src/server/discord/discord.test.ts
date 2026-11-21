@@ -486,19 +486,21 @@ describe("Discord", () => {
       coaches: ranked.coach,
     });
     const fields = message.embeds[0]?.fields ?? [];
-    expect(fields.map((field) => field.name)).toEqual([
-      "Playoffs",
-      "Top 10 players",
-      "Bottom 10 players",
-      "Top 3 coaches",
-      "Bottom 2 coaches",
+    const spacer = "\u200b";
+    expect(fields.map(({ name, inline }) => [name, inline ?? false])).toEqual([
+      ["Playoffs", false],
+      [spacer, false],
+      ["Top 10 players", true],
+      ["Bottom 10 players", true],
+      [spacer, false],
+      ["Top 3 coaches", true],
+      ["Bottom 2 coaches", true],
     ]);
-    expect(fields.every((field) => !field.inline)).toBe(true);
     expect(fields[0]?.value).toBe("1. <@bo> · **251**");
-    expect(fields[1]?.value.split("\n")[0]).toBe(
+    expect(fields[2]?.value.split("\n")[0]).toBe(
       "1. **player-23** · **23** · <@u7>",
     );
-    expect(fields[2]?.value.split("\n")[0]).toBe("1. **player-1** · **1**");
+    expect(fields[3]?.value.split("\n")[0]).toBe("1. **player-1** · **1**");
   });
 
   test("a stage ends with its leader; the last one crowns the tournament winner", () => {

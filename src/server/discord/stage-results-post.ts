@@ -14,7 +14,9 @@ import { type DiscordMessage, discord } from "./client.js";
 import {
   ACCENT_COLOR,
   appUrl,
+  BLANK_LINE,
   type ConnectedTournament,
+  column,
   isScored,
   managerLabels,
   type NamedPick,
@@ -85,28 +87,32 @@ function standingsRows(post: StageResultsPost) {
 }
 
 // "1. :team: **aspas** · **120** · @manager"
-function rankedRows(name: string, picks: RankedPick[]) {
-  if (picks.length === 0) return [];
-  return [
-    rows(
-      name,
-      picks.map(({ pick, teamEmoji, points, managers }, index) =>
-        [
-          `${index + 1}. ${withEmoji(teamEmoji, pickName(unlinked(pick)))}`,
-          pointsOf(points),
-          ...(managers.length > 0 ? [managers.join(", ")] : []),
-        ].join(" · "),
-      ),
+function rankedColumn(name: string, picks: RankedPick[]) {
+  return column(
+    name,
+    picks.map(({ pick, teamEmoji, points, managers }, index) =>
+      [
+        `${index + 1}. ${withEmoji(teamEmoji, pickName(unlinked(pick)))}`,
+        pointsOf(points),
+        ...(managers.length > 0 ? [managers.join(", ")] : []),
+      ].join(" · "),
     ),
-  ];
+  );
 }
 
 const kindLabel = { player: "players", coach: "coaches" } as const;
 
-function topAndBottomRows(kind: PickableKind, { top, bottom }: TopAndBottom) {
+// Top and bottom sit side by side. The two lists don't share rows, so mentions can't misalign
+// them, and the blank full-width field before them starts a new row of columns.
+function topAndBottomColumns(
+  kind: PickableKind,
+  { top, bottom }: TopAndBottom,
+) {
+  if (top.length === 0) return [];
   return [
-    ...rankedRows(`Top ${top.length} ${kindLabel[kind]}`, top),
-    ...rankedRows(`Bottom ${bottom.length} ${kindLabel[kind]}`, bottom),
+    { name: BLANK_LINE, value: BLANK_LINE },
+    rankedColumn(`Top ${top.length} ${kindLabel[kind]}`, top),
+    rankedColumn(`Bottom ${bottom.length} ${kindLabel[kind]}`, bottom),
   ];
 }
 
@@ -128,8 +134,8 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
         color: ACCENT_COLOR,
         fields: [
           standingsRows(post),
-          ...topAndBottomRows("player", post.players),
-          ...topAndBottomRows("coach", post.coaches),
+          ...topAndBottomColumns("player", post.players),
+          ...topAndBottomColumns("coach", post.coaches),
         ],
         footer: { text: post.tournamentName },
       },
