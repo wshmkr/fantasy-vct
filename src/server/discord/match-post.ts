@@ -13,6 +13,7 @@ import { matchOverviewUrl } from "../vlr/match.js";
 import { type DiscordMessage, discord } from "./client.js";
 import {
   ACCENT_COLOR,
+  boldPoints,
   type ConnectedTournament,
   column,
   managerLabels,
@@ -108,7 +109,7 @@ function standingsRows(standings: PostedStanding[]) {
       "Standings",
       standings.map(
         ({ rank, manager, points, matchPoints }) =>
-          `${rank}. ${manager} · **${points ?? 0}**${matchPoints === 0 ? "" : ` (${signed(matchPoints)})`}`,
+          `${rank}. ${manager} · ${boldPoints(points)}${matchPoints === 0 ? "" : ` (${signed(matchPoints)})`}`,
       ),
     ),
   ];

@@ -60,6 +60,9 @@ export interface ScoredMatch {
   statRows: StatRow[];
   pairings: TeamMapPairing[];
   pointsByPickable: Map<number, number>;
+  // Players with stat rows (their own or a credited sub's), coaches whose team played, and
+  // everyone on a forfeit's teams. A benched player's 0 doesn't count as taking part.
+  participantIds: Set<number>;
   needsAttention: boolean;
 }
 
@@ -203,12 +206,19 @@ function scoreMatch(
 ): ScoredMatch {
   const pairings = pairTeamMaps(match, rows, rosters ?? UNSTAGED);
   const pointsByPickable = new Map<number, number>();
+  const participantIds = new Set<number>();
   for (const pickable of rosters?.pool ?? []) {
     if (!teamIdsOf(match).includes(pickable.teamId)) continue;
     pointsByPickable.set(
       pickable.id,
       pickableMatchPoints(pickable, match, rows, pairings, config),
     );
+    const tookPart =
+      match.forfeitWinner !== null ||
+      (pickable.kind === "coach"
+        ? rows.maps.length > 0
+        : scoredRowsOf(pickable, rows.statRows, pairings).length > 0);
+    if (tookPart) participantIds.add(pickable.id);
   }
   return {
     match,
@@ -217,6 +227,7 @@ function scoreMatch(
     statRows: rows.statRows,
     pairings,
     pointsByPickable,
+    participantIds,
     needsAttention:
       match.scrapeStatus === "failed" ||
       pairings.some(({ pairing }) => pairing.unassignedSubVlrIds.length > 0),

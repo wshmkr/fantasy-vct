@@ -27,6 +27,7 @@ import {
   tournaments,
   tournamentTeams,
 } from "./db/schema.js";
+import { scoreTournament } from "./points.js";
 import { scrapeMatch } from "./sync.js";
 import { insertUser, loginAs } from "./test-utils.js";
 import { createFakeVlr } from "./vlr/fake-vlr.js";
@@ -283,6 +284,11 @@ describe("match detail", () => {
       needsAssignment: false,
       missingPickableIds: [],
     });
+    // The sub's credited rows count as Lear taking part.
+    const scored = scoreTournament(tournamentId).matches.find(
+      ({ match }) => match.id === matchId("314898"),
+    );
+    expect(scored?.participantIds.has(pickableId("Lear"))).toBe(true);
   });
 });
 

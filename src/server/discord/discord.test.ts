@@ -240,7 +240,6 @@ describe("Discord", () => {
     );
     expect(stats?.value).toContain("20/10/5");
     expect(owners?.value).toMatch(/\*\*\d+\*\* · <@discord-amy>/);
-    // Mentions are taller than text, so a standings row is one line rather than two columns.
     expect(standings?.inline).toBe(false);
     expect(standings?.value).toMatch(
       /^1\. <@discord-amy> · \*\*\d+\*\* \(\+\d+\)/,
@@ -423,17 +422,15 @@ describe("Discord", () => {
   });
 
   test("stage results rank top and bottom players and coaches, skipping players who never played", () => {
-    const pickable = (id: number, kind: "player" | "coach", played = true) => ({
+    const pickable = (id: number, kind: "player" | "coach") => ({
       id,
       kind,
       handle: `${kind}-${id}`,
       teamId: -1,
-      vlrId: played ? `vlr-${id}` : `bench-${id}`,
-      vlrUrl: null,
       isPlaceholder: false,
     });
     const players = Array.from({ length: 24 }, (_, n) =>
-      pickable(n + 1, "player", n !== 23),
+      pickable(n + 1, "player"),
     );
     const coaches = Array.from({ length: 5 }, (_, n) =>
       pickable(100 + n, "coach"),
@@ -447,13 +444,10 @@ describe("Discord", () => {
           rosterEntries: [{ userId: 7, pickableId: 23 }],
         },
       ],
-      scoredMatches: [
-        {
-          statRows: players
-            .filter((p) => p.vlrId.startsWith("vlr-"))
-            .map((p) => ({ vlrPlayerId: p.vlrId })),
-        },
-      ],
+      // The benched player (id 24) never took part.
+      participantIds: new Set(
+        [...players, ...coaches].map((p) => p.id).filter((id) => id !== 24),
+      ),
       pointsOfPickable: pointsOf,
     } as unknown as RankingScope;
 

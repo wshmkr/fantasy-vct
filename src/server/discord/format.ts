@@ -19,11 +19,11 @@ export const ACCENT_COLOR = 0xff7a1a;
 export const ALERT_COLOR = 0xf87171;
 // A blank line Discord won't collapse, to space out rows of fields.
 export const BLANK_LINE = "​";
-// An empty inline field, to end a row of fewer than three columns.
-export const EMPTY_COLUMN = {
+// At most three columns share a row; this blank full-width field starts a new one.
+export const ROW_BREAK = {
   name: BLANK_LINE,
   value: BLANK_LINE,
-  inline: true,
+  inline: false,
 };
 export const PING_NOBODY: DiscordMessage["allowed_mentions"] = { parse: [] };
 
@@ -50,6 +50,8 @@ export const rows = (name: string, lines: string[], empty = "—") => ({
   ...column(name, lines, empty),
   inline: false,
 });
+
+export const boldPoints = (points: number | null) => `**${points ?? 0}**`;
 
 export const signed = (points: number) =>
   points > 0 ? `+${points}` : `${points}`;

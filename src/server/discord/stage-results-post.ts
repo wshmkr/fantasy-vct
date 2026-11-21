@@ -3,7 +3,6 @@ import type { PickableKind } from "../../shared/entities.js";
 import { db } from "../db/client.js";
 import { stages } from "../db/schema.js";
 import {
-  type ScoredMatch,
   type ScoredStage,
   scoreTournament,
   type TournamentScores,
@@ -14,17 +13,21 @@ import { type DiscordMessage, discord } from "./client.js";
 import {
   ACCENT_COLOR,
   appUrl,
-  BLANK_LINE,
+  boldPoints,
   type ConnectedTournament,
   column,
   isScored,
   managerLabels,
+  ROW_BREAK,
   rows,
   teamBadges,
   withEmoji,
 } from "./format.js";
 
-const LISTED_COUNT = { player: 10, coach: 3 } as const;
+const LISTED = {
+  player: { count: 10, label: "players" },
+  coach: { count: 3, label: "coaches" },
+} as const;
 
 interface RankedManager {
   rank: number;
@@ -63,15 +66,13 @@ export interface TopAndBottom {
   bottom: RankedPick[];
 }
 
-const pointsOf = (points: number | null) => `**${points ?? 0}**`;
-
 function standingsRows(post: StageResultsPost) {
   if (post.tournamentStandings) {
     return rows(
       "Tournament",
       post.tournamentStandings.map(
         ({ rank, manager, points, stagePoints }) =>
-          `${rank}. ${manager} · ${pointsOf(points)} (${post.stageName} ${stagePoints ?? 0})`,
+          `${rank}. ${manager} · ${boldPoints(points)} (${post.stageName} ${stagePoints ?? 0})`,
       ),
     );
   }
@@ -79,39 +80,37 @@ function standingsRows(post: StageResultsPost) {
     post.stageName,
     post.stageStandings.map(
       ({ rank, manager, points }) =>
-        `${rank}. ${manager} · ${pointsOf(points)}`,
+        `${rank}. ${manager} · ${boldPoints(points)}`,
     ),
   );
 }
 
 // "1. :team: **aspas** · **120** · @manager"
-function rankedColumn(name: string, picks: RankedPick[]) {
+function rankedColumn(heading: string, picks: RankedPick[]) {
   return column(
-    name,
-    picks.map(({ name: pickName, teamEmoji, points, managers }, index) =>
+    heading,
+    picks.map(({ name, teamEmoji, points, managers }, index) =>
       [
-        `${index + 1}. ${withEmoji(teamEmoji, `**${pickName}**`)}`,
-        pointsOf(points),
-        ...(managers.length > 0 ? [managers.join(", ")] : []),
-      ].join(" · "),
+        `${index + 1}. ${withEmoji(teamEmoji, `**${name}**`)}`,
+        boldPoints(points),
+        managers.join(", "),
+      ]
+        .filter(Boolean)
+        .join(" · "),
     ),
   );
 }
-
-const kindLabel = { player: "players", coach: "coaches" } as const;
 
 // Top and bottom sit side by side. The two lists don't share rows, so mentions can't misalign them.
 function topAndBottomColumns(
   kind: PickableKind,
   { top, bottom }: TopAndBottom,
-  { newRow = false } = {},
 ) {
   if (top.length === 0) return [];
+  const { label } = LISTED[kind];
   return [
-    // At most three columns share a row; a blank full-width field starts a new one.
-    ...(newRow ? [{ name: BLANK_LINE, value: BLANK_LINE }] : []),
-    rankedColumn(`Top ${top.length} ${kindLabel[kind]}`, top),
-    rankedColumn(`Bottom ${bottom.length} ${kindLabel[kind]}`, bottom),
+    rankedColumn(`Top ${top.length} ${label}`, top),
+    rankedColumn(`Bottom ${bottom.length} ${label}`, bottom),
   ];
 }
 
@@ -120,8 +119,8 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
   const [leader] = post.tournamentStandings ?? post.stageStandings;
   const headline = leader
     ? isFinal
-      ? `🏆 ${leader.manager} wins the tournament with ${pointsOf(leader.points)} points`
-      : `${leader.manager} ends ${post.stageName} with ${pointsOf(leader.points)} points`
+      ? `🏆 ${leader.manager} wins the tournament with ${boldPoints(leader.points)} points`
+      : `${leader.manager} ends ${post.stageName} with ${boldPoints(leader.points)} points`
     : null;
   return {
     content: `<@&${post.roleId}>`,
@@ -134,7 +133,8 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
         fields: [
           standingsRows(post),
           ...topAndBottomColumns("player", post.players),
-          ...topAndBottomColumns("coach", post.coaches, { newRow: true }),
+          ...(post.coaches.top.length > 0 ? [ROW_BREAK] : []),
+          ...topAndBottomColumns("coach", post.coaches),
         ],
         footer: { text: post.tournamentName },
       },
@@ -144,25 +144,21 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
 }
 
 export interface RankingScope {
-  scoredStages: ScoredStage[];
-  scoredMatches: ScoredMatch[];
+  scoredStages: Pick<ScoredStage, "pool" | "rosterEntries">[];
+  participantIds: Set<number>;
   pointsOfPickable: (pickableId: number) => number | null;
 }
 
-// Players who never took the map would crowd the bottom with zeros, so only those who played rank.
+// Benched players would crowd the bottom with zeros, so only picks that took part rank.
 export function rankedPicksOf(
-  { scoredStages, scoredMatches, pointsOfPickable }: RankingScope,
+  { scoredStages, participantIds, pointsOfPickable }: RankingScope,
   managerOf: (userId: number) => string,
 ): Record<PickableKind, TopAndBottom> {
-  const playedVlrIds = new Set(
-    scoredMatches.flatMap(({ statRows }) =>
-      statRows.map((row) => row.vlrPlayerId),
-    ),
-  );
   const pickables = new Map(
     scoredStages.flatMap(({ pool }) => pool.map((pick) => [pick.id, pick])),
   );
   const scored = [...pickables.values()]
+    .filter((pickable) => participantIds.has(pickable.id))
     .flatMap((pickable) => {
       const points = pointsOfPickable(pickable.id);
       return points === null ? [] : [{ pickable, points }];
@@ -186,12 +182,8 @@ export function rankedPicksOf(
     ].map(managerOf),
   });
   const topAndBottom = (kind: PickableKind): TopAndBottom => {
-    const ofKind = scored.filter(
-      ({ pickable }) =>
-        pickable.kind === kind &&
-        (kind === "coach" || playedVlrIds.has(pickable.vlrId ?? "")),
-    );
-    const count = LISTED_COUNT[kind];
+    const ofKind = scored.filter(({ pickable }) => pickable.kind === kind);
+    const { count } = LISTED[kind];
     return {
       top: ofKind.slice(0, count).map(ranked),
       // Starts after the top list, so a small pool never lists a pick twice.
@@ -215,18 +207,21 @@ export function stageResultsPostOf(
   const scoredStage = scores.stages.find(
     (scored) => scored.stage.id === stage.id,
   );
+  const participantIds = new Set(
+    scores.matches
+      .filter(({ stageId }) => isFinal || stageId === stage.id)
+      .flatMap((scored) => [...scored.participantIds]),
+  );
   const ranked = rankedPicksOf(
     isFinal
       ? {
           scoredStages: scores.stages,
-          scoredMatches: scores.matches,
+          participantIds,
           pointsOfPickable: scores.tournamentPoints,
         }
       : {
           scoredStages: scoredStage ? [scoredStage] : [],
-          scoredMatches: scores.matches.filter(
-            ({ stageId }) => stageId === stage.id,
-          ),
+          participantIds,
           pointsOfPickable: (pickableId) =>
             scoredStage?.pointsByPickable.get(pickableId) ?? null,
         },
