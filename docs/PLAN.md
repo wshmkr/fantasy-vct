@@ -1116,4 +1116,4 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] Fix: stop auto-retrying matches a day after kickoff (commit ee65da1)
 - [x] 3. Fly.io deploy only, Discord webhooks and extra jobs deferred (commits 70698e6, cba15c8; live at https://fantasy-vct.fly.dev in ewr, 2026-11-20)
 - [x] 3.1 Forfeits, and drop Swiss phantom series (commits 189deb5, 9bbf775)
-- [ ] 3.2 Stage carry-over and one draft flow
+- [x] 3.2 Stage carry-over and one draft flow (commit ec807f4)
