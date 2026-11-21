@@ -19,12 +19,8 @@ import {
   column,
   isScored,
   managerLabels,
-  type NamedPick,
-  namedPickOf,
-  pickName,
   rows,
   teamBadges,
-  unlinked,
   withEmoji,
 } from "./format.js";
 
@@ -37,7 +33,9 @@ interface RankedManager {
 }
 
 export interface RankedPick {
-  pick: NamedPick;
+  // The handle, or the team's name for a placeholder coach. The headings already say which
+  // lists hold coaches, and a field holds only 1024 characters, so there's no (C) or VLR link.
+  name: string;
   teamEmoji: string | null;
   points: number;
   // Everyone who drafted the pick; empty when nobody did.
@@ -90,9 +88,9 @@ function standingsRows(post: StageResultsPost) {
 function rankedColumn(name: string, picks: RankedPick[]) {
   return column(
     name,
-    picks.map(({ pick, teamEmoji, points, managers }, index) =>
+    picks.map(({ name: pickName, teamEmoji, points, managers }, index) =>
       [
-        `${index + 1}. ${withEmoji(teamEmoji, pickName(unlinked(pick)))}`,
+        `${index + 1}. ${withEmoji(teamEmoji, `**${pickName}**`)}`,
         pointsOf(points),
         ...(managers.length > 0 ? [managers.join(", ")] : []),
       ].join(" · "),
@@ -102,15 +100,16 @@ function rankedColumn(name: string, picks: RankedPick[]) {
 
 const kindLabel = { player: "players", coach: "coaches" } as const;
 
-// Top and bottom sit side by side. The two lists don't share rows, so mentions can't misalign
-// them, and the blank full-width field before them starts a new row of columns.
+// Top and bottom sit side by side. The two lists don't share rows, so mentions can't misalign them.
 function topAndBottomColumns(
   kind: PickableKind,
   { top, bottom }: TopAndBottom,
+  { newRow = false } = {},
 ) {
   if (top.length === 0) return [];
   return [
-    { name: BLANK_LINE, value: BLANK_LINE },
+    // At most three columns share a row; a blank full-width field starts a new one.
+    ...(newRow ? [{ name: BLANK_LINE, value: BLANK_LINE }] : []),
     rankedColumn(`Top ${top.length} ${kindLabel[kind]}`, top),
     rankedColumn(`Bottom ${bottom.length} ${kindLabel[kind]}`, bottom),
   ];
@@ -135,7 +134,7 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
         fields: [
           standingsRows(post),
           ...topAndBottomColumns("player", post.players),
-          ...topAndBottomColumns("coach", post.coaches),
+          ...topAndBottomColumns("coach", post.coaches, { newRow: true }),
         ],
         footer: { text: post.tournamentName },
       },
@@ -171,7 +170,9 @@ export function rankedPicksOf(
     .sort((a, b) => b.points - a.points);
   const badgeOf = teamBadges(scored.map(({ pickable }) => pickable.teamId));
   const ranked = ({ pickable, points }: (typeof scored)[number]) => ({
-    pick: namedPickOf(pickable),
+    name: pickable.isPlaceholder
+      ? badgeOf(pickable.teamId).name
+      : pickable.handle,
     teamEmoji: badgeOf(pickable.teamId).emoji,
     points,
     managers: [

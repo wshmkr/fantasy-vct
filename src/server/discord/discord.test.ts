@@ -459,8 +459,8 @@ describe("Discord", () => {
 
     const ranked = rankedPicksOf(scope, (userId) => `<@u${userId}>`);
 
-    const handles = (picks: { pick: { handle: string } }[]) =>
-      picks.map(({ pick }) => pick.handle);
+    const handles = (picks: { name: string }[]) =>
+      picks.map(({ name }) => name);
     expect(handles(ranked.player.top)).toEqual(
       [23, 22, 21, 20, 19, 18, 17, 16, 15, 14].map((n) => `player-${n}`),
     );
@@ -489,7 +489,6 @@ describe("Discord", () => {
     const spacer = "\u200b";
     expect(fields.map(({ name, inline }) => [name, inline ?? false])).toEqual([
       ["Playoffs", false],
-      [spacer, false],
       ["Top 10 players", true],
       ["Bottom 10 players", true],
       [spacer, false],
@@ -497,10 +496,10 @@ describe("Discord", () => {
       ["Bottom 2 coaches", true],
     ]);
     expect(fields[0]?.value).toBe("1. <@bo> · **251**");
-    expect(fields[2]?.value.split("\n")[0]).toBe(
+    expect(fields[1]?.value.split("\n")[0]).toBe(
       "1. **player-23** · **23** · <@u7>",
     );
-    expect(fields[3]?.value.split("\n")[0]).toBe("1. **player-1** · **1**");
+    expect(fields[2]?.value.split("\n")[0]).toBe("1. **player-1** · **1**");
   });
 
   test("a stage ends with its leader; the last one crowns the tournament winner", () => {

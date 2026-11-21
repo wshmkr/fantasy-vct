@@ -51,12 +51,6 @@ export const rows = (name: string, lines: string[], empty = "—") => ({
   inline: false,
 });
 
-// A field value holds 1024 characters, so ranked lists skip the VLR links.
-export const unlinked = (pick: NamedPick): NamedPick => ({
-  ...pick,
-  vlrUrl: null,
-});
-
 export const signed = (points: number) =>
   points > 0 ? `+${points}` : `${points}`;
 
