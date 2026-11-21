@@ -14,12 +14,13 @@ import { type DiscordMessage, discord } from "./client.js";
 import {
   ACCENT_COLOR,
   type ConnectedTournament,
-  column,
   managerLabels,
   type NamedPick,
   namedPickOf,
   PING_NOBODY,
   pickName,
+  rows,
+  signed,
   teamBadges,
   withEmoji,
 } from "./format.js";
@@ -76,41 +77,32 @@ function performance({ isCoach, stats }: PostedPick, roundsByMap: number[]) {
   return stats ? `${stats.k}/${stats.d}/${stats.a}` : "DNP";
 }
 
-// Discord embeds have no tables, and at most three inline fields share a row, so a team's
-// picks become three columns kept to one line per cell so the rows line up.
-function teamColumns(team: PostedTeam) {
+// "**aspas** · 20/10/5 · **58** · @manager"
+function teamRows(team: PostedTeam) {
   const picks = team.picks.toSorted(
     (a, b) => Number(a.isCoach) - Number(b.isCoach) || b.points - a.points,
   );
-  return [
-    column(team.heading, picks.map(pickName)),
-    column(
-      "K/D/A",
-      picks.map((pick) => performance(pick, team.roundsByMap)),
+  return rows(
+    team.heading,
+    picks.map((pick) =>
+      [
+        pickName(pick),
+        performance(pick, team.roundsByMap),
+        `**${pick.points}**`,
+        ...(pick.owner ? [pick.owner] : []),
+      ].join(" · "),
     ),
-    column(
-      "Pts · Manager",
-      picks.map((pick) =>
-        pick.owner
-          ? `**${pick.points}** · ${pick.owner}`
-          : `**${pick.points}**`,
-      ),
-    ),
-  ];
+  );
 }
 
-function standingsColumns(standings: PostedStanding[]) {
+function standingsRows(standings: PostedStanding[]) {
   if (standings.length === 0) return [];
   return [
-    column(
+    rows(
       "Standings",
-      standings.map(({ rank, manager }) => `${rank}. ${manager}`),
-    ),
-    column(
-      "Total",
       standings.map(
-        ({ points, matchPoints }) =>
-          `**${points ?? 0}**${matchPoints === 0 ? "" : ` (+${matchPoints})`}`,
+        ({ rank, manager, points, matchPoints }) =>
+          `${rank}. ${manager} · **${points ?? 0}**${matchPoints === 0 ? "" : ` (${signed(matchPoints)})`}`,
       ),
     ),
   ];
@@ -130,9 +122,9 @@ export function matchPostMessage(post: MatchPost): DiscordMessage {
           .join(" · "),
         color: ACCENT_COLOR,
         fields: [
-          ...teamColumns(post.team1),
-          ...teamColumns(post.team2),
-          ...standingsColumns(post.standings),
+          teamRows(post.team1),
+          teamRows(post.team2),
+          ...standingsRows(post.standings),
         ],
         footer: { text: post.tournamentName },
       },

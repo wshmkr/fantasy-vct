@@ -18,7 +18,11 @@ import { createFakeVlr, FIXTURE_EVENT_URL } from "../vlr/fake-vlr.js";
 import { importEvent } from "../vlr/import.js";
 import { discord } from "./client.js";
 import { scheduleMessages } from "./schedule-post.js";
-import { stageResultsMessage } from "./stage-results-post.js";
+import {
+  type RankingScope,
+  rankedPicksOf,
+  stageResultsMessage,
+} from "./stage-results-post.js";
 import { teamEmojiName } from "./team-emojis.js";
 import { postDiscordUpdates } from "./updates.js";
 
@@ -228,16 +232,17 @@ describe("Discord", () => {
     expect(others).toEqual([]);
     expect(message?.content).toBeUndefined();
     expect(message?.allowed_mentions).toEqual({ parse: [] });
+    // Mentions are taller than text, so every row is one line rather than columns.
     const fields = message?.embeds[0]?.fields ?? [];
-    const [players, stats, owners] = fields;
-    const [standings, totals] = fields.slice(-2);
-    expect(players?.value).toContain(
-      `[**${drafted.handle}**](${drafted.vlrUrl})`,
+    expect(fields.every((field) => !field.inline)).toBe(true);
+    const [team1, , standings] = fields;
+    expect(team1?.value).toContain(
+      `[**${drafted.handle}**](${drafted.vlrUrl}) · 20/10/5 · **`,
     );
-    expect(stats?.value).toContain("20/10/5");
-    expect(owners?.value).toMatch(/\*\*\d+\*\* · <@discord-amy>/);
-    expect(standings?.value).toMatch(/^1\. <@discord-amy>/);
-    expect(totals?.value).toMatch(/^\*\*\d+\*\* \(\+\d+\)/);
+    expect(team1?.value).toMatch(/\*\*\d+\*\* · <@discord-amy>/);
+    expect(standings?.value).toMatch(
+      /^1\. <@discord-amy> · \*\*\d+\*\* \(\+\d+\)/,
+    );
   });
 
   test("joining after the channel is connected gives the role", async () => {
@@ -415,6 +420,85 @@ describe("Discord", () => {
     expect(split[1]?.embeds[0]?.title).toBeUndefined();
   });
 
+  test("stage results rank top and bottom players and coaches, skipping players who never played", () => {
+    const pickable = (id: number, kind: "player" | "coach", played = true) => ({
+      id,
+      kind,
+      handle: `${kind}-${id}`,
+      teamId: -1,
+      vlrId: played ? `vlr-${id}` : `bench-${id}`,
+      vlrUrl: null,
+      isPlaceholder: false,
+    });
+    const players = Array.from({ length: 24 }, (_, n) =>
+      pickable(n + 1, "player", n !== 23),
+    );
+    const coaches = Array.from({ length: 5 }, (_, n) =>
+      pickable(100 + n, "coach"),
+    );
+    // Points equal the id, except the benched player's zero.
+    const pointsOf = (id: number) => (id === 24 ? 0 : id);
+    const scope = {
+      scoredStages: [
+        {
+          pool: [...players, ...coaches],
+          rosterEntries: [{ userId: 7, pickableId: 23 }],
+        },
+      ],
+      scoredMatches: [
+        {
+          statRows: players
+            .filter((p) => p.vlrId.startsWith("vlr-"))
+            .map((p) => ({ vlrPlayerId: p.vlrId })),
+        },
+      ],
+      pointsOfPickable: pointsOf,
+    } as unknown as RankingScope;
+
+    const ranked = rankedPicksOf(scope, (userId) => `<@u${userId}>`);
+
+    const handles = (picks: { pick: { handle: string } }[]) =>
+      picks.map(({ pick }) => pick.handle);
+    expect(handles(ranked.player.top)).toEqual(
+      [23, 22, 21, 20, 19, 18, 17, 16, 15, 14].map((n) => `player-${n}`),
+    );
+    expect(ranked.player.top[0]?.managers).toEqual(["<@u7>"]);
+    expect(handles(ranked.player.bottom)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `player-${n}`),
+    );
+    expect(handles(ranked.coach.top)).toEqual([
+      "coach-104",
+      "coach-103",
+      "coach-102",
+    ]);
+    expect(handles(ranked.coach.bottom)).toEqual(["coach-100", "coach-101"]);
+
+    const message = stageResultsMessage({
+      roleId: "role-9",
+      tournamentName: "Kickoff",
+      stageName: "Playoffs",
+      rostersUrl: "https://example.test/tournaments/1/rosters",
+      stageStandings: [{ rank: 1, manager: "<@bo>", points: 251 }],
+      tournamentStandings: null,
+      players: ranked.player,
+      coaches: ranked.coach,
+    });
+    const fields = message.embeds[0]?.fields ?? [];
+    expect(fields.map((field) => field.name)).toEqual([
+      "Playoffs",
+      "Top 10 players",
+      "Bottom 10 players",
+      "Top 3 coaches",
+      "Bottom 2 coaches",
+    ]);
+    expect(fields.every((field) => !field.inline)).toBe(true);
+    expect(fields[0]?.value).toBe("1. <@bo> · **251**");
+    expect(fields[1]?.value.split("\n")[0]).toBe(
+      "1. **player-23** · **23** · <@u7>",
+    );
+    expect(fields[2]?.value.split("\n")[0]).toBe("1. **player-1** · **1**");
+  });
+
   test("a stage ends with its leader; the last one crowns the tournament winner", () => {
     const post = {
       roleId: "role-9",
@@ -422,7 +506,8 @@ describe("Discord", () => {
       stageName: "Swiss Stage",
       rostersUrl: "https://example.test/tournaments/1/rosters",
       stageStandings: [{ rank: 1, manager: "<@bo>", points: 251 }],
-      topPlayers: [],
+      players: { top: [], bottom: [] },
+      coaches: { top: [], bottom: [] },
     };
     expect(
       stageResultsMessage({ ...post, tournamentStandings: null }).embeds[0]

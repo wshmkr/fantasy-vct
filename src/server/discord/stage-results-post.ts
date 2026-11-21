@@ -1,7 +1,9 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
+import type { PickableKind } from "../../shared/entities.js";
 import { db } from "../db/client.js";
 import { stages } from "../db/schema.js";
 import {
+  type ScoredMatch,
   type ScoredStage,
   scoreTournament,
   type TournamentScores,
@@ -12,20 +14,19 @@ import { type DiscordMessage, discord } from "./client.js";
 import {
   ACCENT_COLOR,
   appUrl,
-  BLANK_LINE,
   type ConnectedTournament,
-  column,
-  EMPTY_COLUMN,
   isScored,
   managerLabels,
   type NamedPick,
   namedPickOf,
   pickName,
+  rows,
   teamBadges,
+  unlinked,
   withEmoji,
 } from "./format.js";
 
-const TOP_PLAYER_COUNT = 10;
+const LISTED_COUNT = { player: 10, coach: 3 } as const;
 
 interface RankedManager {
   rank: number;
@@ -33,7 +34,7 @@ interface RankedManager {
   points: number | null;
 }
 
-export interface TopPlayer {
+export interface RankedPick {
   pick: NamedPick;
   teamEmoji: string | null;
   points: number;
@@ -51,66 +52,61 @@ export interface StageResultsPost {
   tournamentStandings:
     | (RankedManager & { stagePoints: number | null })[]
     | null;
-  // The stage's best picks, or the whole tournament's in the final results.
-  topPlayers: TopPlayer[];
+  // The stage's best and worst picks, or the whole tournament's in the final results.
+  players: TopAndBottom;
+  coaches: TopAndBottom;
+}
+
+export interface TopAndBottom {
+  top: RankedPick[];
+  // Worst first.
+  bottom: RankedPick[];
 }
 
 const pointsOf = (points: number | null) => `**${points ?? 0}**`;
 
-// At most three inline fields share a row, so the final post folds the last stage into a column.
-function standingsColumns(post: StageResultsPost) {
+function standingsRows(post: StageResultsPost) {
   if (post.tournamentStandings) {
-    return [
-      column(
-        "Tournament",
-        post.tournamentStandings.map(
-          ({ rank, manager }) => `${rank}. ${manager}`,
-        ),
+    return rows(
+      "Tournament",
+      post.tournamentStandings.map(
+        ({ rank, manager, points, stagePoints }) =>
+          `${rank}. ${manager} · ${pointsOf(points)} (${post.stageName} ${stagePoints ?? 0})`,
       ),
-      column(
-        "Total",
-        post.tournamentStandings.map(({ points }) => pointsOf(points)),
-      ),
-      column(
-        post.stageName,
-        post.tournamentStandings.map(
-          ({ stagePoints }) => `${stagePoints ?? 0}`,
-        ),
-      ),
-    ];
+    );
   }
+  return rows(
+    post.stageName,
+    post.stageStandings.map(
+      ({ rank, manager, points }) =>
+        `${rank}. ${manager} · ${pointsOf(points)}`,
+    ),
+  );
+}
+
+// "1. :team: **aspas** · **120** · @manager"
+function rankedRows(name: string, picks: RankedPick[]) {
+  if (picks.length === 0) return [];
   return [
-    column(
-      post.stageName,
-      post.stageStandings.map(({ rank, manager }) => `${rank}. ${manager}`),
+    rows(
+      name,
+      picks.map(({ pick, teamEmoji, points, managers }, index) =>
+        [
+          `${index + 1}. ${withEmoji(teamEmoji, pickName(unlinked(pick)))}`,
+          pointsOf(points),
+          ...(managers.length > 0 ? [managers.join(", ")] : []),
+        ].join(" · "),
+      ),
     ),
-    column(
-      "Pts",
-      post.stageStandings.map(({ points }) => pointsOf(points)),
-    ),
-    EMPTY_COLUMN,
   ];
 }
 
-function topPlayerColumns(topPlayers: TopPlayer[]) {
-  if (topPlayers.length === 0) return [];
+const kindLabel = { player: "players", coach: "coaches" } as const;
+
+function topAndBottomRows(kind: PickableKind, { top, bottom }: TopAndBottom) {
   return [
-    column(
-      `Top ${topPlayers.length} players`,
-      topPlayers.map(
-        ({ pick, teamEmoji }, index) =>
-          `${index + 1}. ${withEmoji(teamEmoji, pickName(pick))}`,
-      ),
-    ),
-    column(
-      "Pts",
-      topPlayers.map(({ points }) => pointsOf(points)),
-    ),
-    column(
-      "Manager",
-      // Undrafted picks leave the cell blank, but the line must stay so the rows line up.
-      topPlayers.map(({ managers }) => managers.join(", ") || BLANK_LINE),
-    ),
+    ...rankedRows(`Top ${top.length} ${kindLabel[kind]}`, top),
+    ...rankedRows(`Bottom ${bottom.length} ${kindLabel[kind]}`, bottom),
   ];
 }
 
@@ -131,8 +127,9 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
         description: headline ?? undefined,
         color: ACCENT_COLOR,
         fields: [
-          ...standingsColumns(post),
-          ...topPlayerColumns(post.topPlayers),
+          standingsRows(post),
+          ...topAndBottomRows("player", post.players),
+          ...topAndBottomRows("coach", post.coaches),
         ],
         footer: { text: post.tournamentName },
       },
@@ -141,23 +138,33 @@ export function stageResultsMessage(post: StageResultsPost): DiscordMessage {
   };
 }
 
-function topPlayersOf(
-  scoredStages: ScoredStage[],
-  pointsOfPickable: (pickableId: number) => number | null,
+export interface RankingScope {
+  scoredStages: ScoredStage[];
+  scoredMatches: ScoredMatch[];
+  pointsOfPickable: (pickableId: number) => number | null;
+}
+
+// Players who never took the map would crowd the bottom with zeros, so only those who played rank.
+export function rankedPicksOf(
+  { scoredStages, scoredMatches, pointsOfPickable }: RankingScope,
   managerOf: (userId: number) => string,
-): TopPlayer[] {
+): Record<PickableKind, TopAndBottom> {
+  const playedVlrIds = new Set(
+    scoredMatches.flatMap(({ statRows }) =>
+      statRows.map((row) => row.vlrPlayerId),
+    ),
+  );
   const pickables = new Map(
     scoredStages.flatMap(({ pool }) => pool.map((pick) => [pick.id, pick])),
   );
-  const best = [...pickables.values()]
+  const scored = [...pickables.values()]
     .flatMap((pickable) => {
       const points = pointsOfPickable(pickable.id);
       return points === null ? [] : [{ pickable, points }];
     })
-    .sort((a, b) => b.points - a.points)
-    .slice(0, TOP_PLAYER_COUNT);
-  const badgeOf = teamBadges(best.map(({ pickable }) => pickable.teamId));
-  return best.map(({ pickable, points }) => ({
+    .sort((a, b) => b.points - a.points);
+  const badgeOf = teamBadges(scored.map(({ pickable }) => pickable.teamId));
+  const ranked = ({ pickable, points }: (typeof scored)[number]) => ({
     pick: namedPickOf(pickable),
     teamEmoji: badgeOf(pickable.teamId).emoji,
     points,
@@ -170,7 +177,24 @@ function topPlayersOf(
         ),
       ),
     ].map(managerOf),
-  }));
+  });
+  const topAndBottom = (kind: PickableKind): TopAndBottom => {
+    const ofKind = scored.filter(
+      ({ pickable }) =>
+        pickable.kind === kind &&
+        (kind === "coach" || playedVlrIds.has(pickable.vlrId ?? "")),
+    );
+    const count = LISTED_COUNT[kind];
+    return {
+      top: ofKind.slice(0, count).map(ranked),
+      // Starts after the top list, so a small pool never lists a pick twice.
+      bottom: ofKind
+        .slice(Math.max(count, ofKind.length - count))
+        .reverse()
+        .map(ranked),
+    };
+  };
+  return { player: topAndBottom("player"), coach: topAndBottom("coach") };
 }
 
 export function stageResultsPostOf(
@@ -183,6 +207,23 @@ export function stageResultsPostOf(
   const managerOf = managerLabels(tournament.id);
   const scoredStage = scores.stages.find(
     (scored) => scored.stage.id === stage.id,
+  );
+  const ranked = rankedPicksOf(
+    isFinal
+      ? {
+          scoredStages: scores.stages,
+          scoredMatches: scores.matches,
+          pointsOfPickable: scores.tournamentPoints,
+        }
+      : {
+          scoredStages: scoredStage ? [scoredStage] : [],
+          scoredMatches: scores.matches.filter(
+            ({ stageId }) => stageId === stage.id,
+          ),
+          pointsOfPickable: (pickableId) =>
+            scoredStage?.pointsByPickable.get(pickableId) ?? null,
+        },
+    managerOf,
   );
   return {
     roleId: tournament.discordRoleId,
@@ -212,13 +253,8 @@ export function stageResultsPostOf(
             byStage.find(({ stageId }) => stageId === stage.id)?.points ?? null,
         }))
       : null,
-    topPlayers: isFinal
-      ? topPlayersOf(scores.stages, scores.tournamentPoints, managerOf)
-      : topPlayersOf(
-          scoredStage ? [scoredStage] : [],
-          (pickableId) => scoredStage?.pointsByPickable.get(pickableId) ?? null,
-          managerOf,
-        ),
+    players: ranked.player,
+    coaches: ranked.coach,
   };
 }
 

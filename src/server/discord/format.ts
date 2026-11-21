@@ -44,6 +44,22 @@ export const column = (name: string, lines: string[], empty = "—") => ({
   inline: true,
 });
 
+// Mentions render as pills taller than a text line, so columns holding them drift out of line
+// with their neighbours. A table with mentions keeps each row on one full-width line instead.
+export const rows = (name: string, lines: string[], empty = "—") => ({
+  ...column(name, lines, empty),
+  inline: false,
+});
+
+// A field value holds 1024 characters, so ranked lists skip the VLR links.
+export const unlinked = (pick: NamedPick): NamedPick => ({
+  ...pick,
+  vlrUrl: null,
+});
+
+export const signed = (points: number) =>
+  points > 0 ? `+${points}` : `${points}`;
+
 // Renders in each reader's own time zone.
 export const discordTime = (isoTime: string, style: "t" | "R") =>
   `<t:${Math.floor(Date.parse(isoTime) / 1000)}:${style}>`;
