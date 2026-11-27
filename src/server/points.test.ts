@@ -477,7 +477,10 @@ describe("leaderboard", () => {
     db.delete(rosterEntries)
       .where(eq(rosterEntries.stageId, secondStageId))
       .run();
-    db.update(stagePool).set({ removed: false }).run();
+    db.update(stagePool)
+      .set({ removed: false })
+      .where(eq(stagePool.pickableId, pickableId("bench")))
+      .run();
   });
 
   test("carries the tournament's own scoring values", async () => {

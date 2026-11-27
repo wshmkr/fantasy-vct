@@ -215,7 +215,7 @@ export default function LeaderboardTab({
   tournament: Tournament;
 }) {
   const leaderboard = useLeaderboard(tournament.id).data;
-  const [scope, setScope] = useState<Scope>(TOTAL_SCOPE);
+  const [pickedScope, setScope] = useState<Scope>(TOTAL_SCOPE);
   const [kind, setKind] = useState<PickableKind>("player");
   const [search, setSearch] = useState("");
   const [teamIds, setTeamIds] = useState<ReadonlySet<number>>(new Set());
@@ -229,10 +229,18 @@ export default function LeaderboardTab({
     { key: TOTAL_SCOPE, label: "Total" },
     ...tournament.stages.map((stage) => ({ key: stage.id, label: stage.name })),
   ];
+  const scope = tournament.stages.some(({ id }) => id === pickedScope)
+    ? pickedScope
+    : TOTAL_SCOPE;
   const scopeRows =
     leaderboard?.scopes.find(
       ({ stageId }) => stageId === (scope === TOTAL_SCOPE ? null : scope),
     )?.rows ?? [];
+  const scopeTeams = teamsOf(scopeRows);
+  // A team picked in another scope stays selected but can't hide this scope's rows.
+  const visibleTeamIds = new Set(
+    scopeTeams.flatMap(({ id }) => (teamIds.has(id) ? [id] : [])),
+  );
   const ownerName = (userId: number) => {
     const member = tournament.members.find(({ user }) => user.id === userId);
     return member ? displayNameOf(member.user) : "";
@@ -245,7 +253,7 @@ export default function LeaderboardTab({
     : DEFAULT_LEADERBOARD_SORT;
   const rows = leaderboardRows(
     scopeRows,
-    { kind, search, teamIds, ownerUserIds, undrafted },
+    { kind, search, teamIds: visibleTeamIds, ownerUserIds, undrafted },
     activeSort,
     ownerName,
   );
@@ -289,7 +297,7 @@ export default function LeaderboardTab({
           />
         </Box>
         <TeamToggles
-          teams={teamsOf(scopeRows)}
+          teams={scopeTeams}
           selectedTeamIds={teamIds}
           onToggle={(teamId) => setTeamIds(toggled(teamIds, teamId))}
         />
