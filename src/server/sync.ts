@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import {
   hasStarted,
   hasTournamentEnded,
@@ -9,11 +9,13 @@ import {
   matches,
   matchMaps,
   playerMapStats,
+  stages,
   teams,
   tournaments,
   tournamentTeams,
 } from "./db/schema.js";
 import { parseEventPage } from "./vlr/event.js";
+import { eventStatsScopesOf } from "./vlr/event-stats.js";
 import { type Downloader, fetchPage, vlrDownloader } from "./vlr/fetch.js";
 import { saveScheduleAndStages } from "./vlr/import.js";
 import {
@@ -211,6 +213,29 @@ async function refreshSchedule(
   }
 }
 
+// Saved for the leaderboard to read; VLR's own averages can't be rebuilt from the rounded per-map values.
+async function refreshEventStats(
+  tournament: TournamentRow,
+  { db, download }: SyncContext,
+) {
+  const stagesInOrder = db
+    .select()
+    .from(stages)
+    .where(eq(stages.tournamentId, tournament.id))
+    .orderBy(asc(stages.position))
+    .all();
+  try {
+    for (const { url } of eventStatsScopesOf(
+      tournament.vlrEventId,
+      stagesInOrder,
+    )) {
+      await fetchPage({ db, download, refresh: true }, url);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 let running = false;
 
 export function isSyncRunning(): boolean {
@@ -256,9 +281,11 @@ export function syncDueMatches(options: SyncOptions = {}): Promise<void> {
       ) {
         await refreshSchedule(tournament, context);
       }
-      for (const match of matchesOf(db, tournament.id)) {
-        if (isDue(match, now())) await scrapeMatch(match.id, context);
-      }
+      const dueMatches = matchesOf(db, tournament.id).filter((match) =>
+        isDue(match, now()),
+      );
+      for (const match of dueMatches) await scrapeMatch(match.id, context);
+      if (dueMatches.length > 0) await refreshEventStats(tournament, context);
     }
   });
 }
@@ -282,6 +309,7 @@ export function syncTournament(
         await scrapeMatch(match.id, context);
       }
     }
+    await refreshEventStats(tournament, context);
   });
 }
 

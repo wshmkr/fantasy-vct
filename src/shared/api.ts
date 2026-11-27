@@ -228,7 +228,7 @@ export interface LeaderboardRow {
   // Sweep and forfeit points: the part of PTS no stat column explains.
   bonus: number;
   stats: MapStatLine;
-  // Averaged over rounds played.
+  // VLR's own figures from its event stats page; a credited sub's maps aren't in them.
   rating: number | null;
   acs: number | null;
   kast: number | null;

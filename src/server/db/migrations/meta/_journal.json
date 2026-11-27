@@ -57,13 +57,6 @@
       "when": 1795195868263,
       "tag": "0007_forfeits_drop_swiss",
       "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1795770004701,
-      "tag": "0008_map_averages",
-      "breakpoints": true
     }
   ]
 }

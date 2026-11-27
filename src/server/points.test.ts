@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import type TestAgent from "supertest/lib/agent.js";
 import { beforeAll, describe, expect, test } from "vitest";
 import type {
@@ -21,6 +21,7 @@ import {
   matches,
   pickables,
   playerMapStats,
+  rawPages,
   rosterEntries,
   stageManagers,
   stagePool,
@@ -33,6 +34,7 @@ import {
 import { scoreTournament } from "./points.js";
 import { scrapeMatch } from "./sync.js";
 import { insertUser, loginAs } from "./test-utils.js";
+import { eventStatsUrl } from "./vlr/event-stats.js";
 import { createFakeVlr } from "./vlr/fake-vlr.js";
 
 // Fixture teams: 314896 is 11001 2-0 106; 314898 is 5038 2-1 14822 with ScrewFace subbing for Lear; 314929 is 15011 1-2 14822.
@@ -395,25 +397,8 @@ describe("tournament points", () => {
 });
 
 describe("leaderboard", () => {
-  test("a player's stat points plus bonus make PTS, with sub maps and rounds-weighted averages", async () => {
+  test("a player's stat points plus bonus make PTS, with sub maps credited", async () => {
     const nismo = await leaderboardRow(firstStageId, "NiSMO");
-    const nismoRows = db
-      .select()
-      .from(playerMapStats)
-      .where(eq(playerMapStats.matchId, matchId("314896")))
-      .all()
-      .filter((row) => row.handle === "NiSMO");
-    const roundsByMapNo = new Map([
-      [1, 13 + 11],
-      [2, 13 + 6],
-    ]);
-    const weightedAcs =
-      nismoRows.reduce(
-        (total, row) =>
-          total + (row.acs ?? 0) * (roundsByMapNo.get(row.mapNo) ?? 0),
-        0,
-      ) /
-      (24 + 19);
 
     expect(nismo).toMatchObject({
       points: 53 + 70 + 15,
@@ -422,13 +407,55 @@ describe("leaderboard", () => {
       rounds: 43,
       stats: { k: 45, d: 29, a: 14 },
       subHandles: [],
+      rating: null,
+      acs: null,
     });
-    expect(nismo?.acs).toBeCloseTo(weightedAcs);
 
     const lear = await leaderboardRow(null, "Lear");
     expect(lear?.points).toBe(73 + (-2 - 12 + 53));
     expect(lear?.subHandles).toEqual(["ScrewFace"]);
     expect(lear && mapRowPoints(lear.stats) + lear.bonus).toBe(lear?.points);
+  });
+
+  test("R, ACS, KAST and ADR come from VLR's saved stats page for the scope", async () => {
+    const nismoVlrId = db
+      .select()
+      .from(pickables)
+      .where(eq(pickables.id, pickableId("NiSMO")))
+      .get()?.vlrId;
+    const statsRow = (vlrId: string | null | undefined, rating: string) => `
+      <tr><td class="mod-player"><a href="/player/${vlrId}/x"></a></td>
+      <td data-col="rating">${rating}</td><td data-col="acs">262</td>
+      <td data-col="kast">79%</td><td data-col="adr">176.4</td></tr>`;
+    const statsPage = (rating: string) =>
+      `<table id="st-table"><tbody>${statsRow(nismoVlrId, rating)}</tbody></table>`;
+    db.insert(rawPages)
+      .values([
+        {
+          url: eventStatsUrl("fixture", ["s1"]),
+          html: statsPage("1.24"),
+          fetchedAt: "now",
+        },
+        {
+          url: eventStatsUrl("fixture", ["s1", "s2", "s3"]),
+          html: statsPage("1.19"),
+          fetchedAt: "now",
+        },
+      ])
+      .run();
+
+    expect(await leaderboardRow(firstStageId, "NiSMO")).toMatchObject({
+      rating: 1.24,
+      acs: 262,
+      kast: 79,
+      adr: 176.4,
+    });
+    expect((await leaderboardRow(null, "NiSMO"))?.rating).toBe(1.19);
+    expect(
+      (await leaderboardRow(firstStageId, "koalanoob"))?.rating,
+    ).toBeNull();
+
+    db.delete(rawPages).where(like(rawPages.url, "%/event/stats/%")).run();
   });
 
   test("a coach's rounds won, unplayed maps and bonus make PTS, from completed series only", async () => {

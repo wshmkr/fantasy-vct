@@ -192,10 +192,6 @@ describe("scraping matches", () => {
       mk4: 0,
       aces: 0,
       clutches: 2,
-      rating: 1.63,
-      acs: 288,
-      kast: 83,
-      adr: 191,
     });
   });
 
@@ -369,6 +365,16 @@ describe("syncTournament", () => {
       expect.stringContaining("/event/3124/"),
       expect.stringContaining("/event/matches/3124/"),
     ]);
+    const stagesWithKeys = db
+      .select()
+      .from(stages)
+      .all()
+      .filter((stage) => stage.vlrStageKeysJson.length > 0);
+    expect(
+      fakeVlr.downloadedUrls.filter((url) =>
+        url.includes("/event/stats/3124?"),
+      ),
+    ).toHaveLength(stagesWithKeys.length + 1);
     expect(
       db.select().from(matches).where(eq(matches.id, scraped.id)).get(),
     ).toMatchObject({ bestOf: 5, team1Id: null, checkedAt: null });

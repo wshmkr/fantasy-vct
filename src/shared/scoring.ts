@@ -121,22 +121,6 @@ export const sum = (values: number[]) =>
 export const ratio = (numerator: number, denominator: number) =>
   numerator / Math.max(denominator, 1);
 
-export interface RoundsWeightedValue {
-  value: number | null;
-  rounds: number;
-}
-
-export function roundsWeightedAverage(
-  entries: RoundsWeightedValue[],
-): number | null {
-  const known = entries.filter(
-    (entry): entry is { value: number; rounds: number } => entry.value !== null,
-  );
-  const rounds = sum(known.map((entry) => entry.rounds));
-  if (rounds === 0) return null;
-  return sum(known.map((entry) => entry.value * entry.rounds)) / rounds;
-}
-
 const MAP_STAT_KEYS = [
   "k",
   "d",

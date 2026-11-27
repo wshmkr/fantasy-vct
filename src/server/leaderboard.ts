@@ -9,14 +9,12 @@ import {
   coachMatchPoints,
   type MapStatLine,
   mapRowPoints,
-  type RoundsWeightedValue,
-  roundsWeightedAverage,
   type ScoringConfig,
   sum,
   ZERO_STAT_LINE,
 } from "../shared/scoring.js";
 import { db } from "./db/client.js";
-import { type pickables, stagePool } from "./db/schema.js";
+import { type pickables, rawPages, stagePool } from "./db/schema.js";
 import { teamLookup } from "./match-picks.js";
 import { toPickable } from "./pickables.js";
 import {
@@ -25,16 +23,19 @@ import {
   type ScoredStage,
   scoredRowsOf,
   scoreTournament,
+  type TournamentScores,
   teamIdsOf,
   teamSeriesOf,
 } from "./points.js";
+import { findTournament } from "./tournaments.js";
+import {
+  type EventPlayerStats,
+  eventStatsScopesOf,
+  parseEventStatsPage,
+} from "./vlr/event-stats.js";
 
 type PickableRow = typeof pickables.$inferSelect;
 
-const AVERAGE_KEYS = ["rating", "acs", "kast", "adr"] as const;
-type AverageKey = (typeof AVERAGE_KEYS)[number];
-
-// Averages keep their per-map values so Total can re-weight across stages.
 interface Tally {
   pickable: PickableRow;
   ownerUserIds: number[];
@@ -44,7 +45,6 @@ interface Tally {
   bestMatchPoints: number | null;
   bonus: number;
   stats: MapStatLine;
-  averages: Record<AverageKey, RoundsWeightedValue[]>;
   subHandles: string[];
   roundsWon: number;
   unplayedBonus: number;
@@ -69,7 +69,6 @@ function emptyTally(pickable: PickableRow, stage: ScoredStage): Tally {
     bestMatchPoints: null,
     bonus: 0,
     stats: ZERO_STAT_LINE,
-    averages: { rating: [], acs: [], kast: [], adr: [] },
     subHandles: [],
     roundsWon: 0,
     unplayedBonus: 0,
@@ -90,9 +89,6 @@ function addPlayerMatch(
     tally.maps += 1;
     tally.rounds += rounds;
     tally.stats = addStatLines(tally.stats, row);
-    for (const key of AVERAGE_KEYS) {
-      tally.averages[key].push({ value: row[key], rounds });
-    }
     if (row.vlrPlayerId !== pickable.vlrId) {
       tally.subHandles = unique([...tally.subHandles, row.handle]);
     }
@@ -162,12 +158,6 @@ function combineTallies(total: Tally, stage: Tally): Tally {
     bestMatchPoints: maxOrNull([total.bestMatchPoints, stage.bestMatchPoints]),
     bonus: total.bonus + stage.bonus,
     stats: addStatLines(total.stats, stage.stats),
-    averages: {
-      rating: [...total.averages.rating, ...stage.averages.rating],
-      acs: [...total.averages.acs, ...stage.averages.acs],
-      kast: [...total.averages.kast, ...stage.averages.kast],
-      adr: [...total.averages.adr, ...stage.averages.adr],
-    },
     subHandles: unique([...total.subHandles, ...stage.subHandles]),
     roundsWon: total.roundsWon + stage.roundsWon,
     unplayedBonus: total.unplayedBonus + stage.unplayedBonus,
@@ -202,6 +192,34 @@ function removedPickableIdsByStage(stageIds: number[]) {
     );
 }
 
+const NO_EVENT_STATS: EventPlayerStats = {
+  rating: null,
+  acs: null,
+  kast: null,
+  adr: null,
+};
+
+// Read from the stats pages the sync saved, so the averages are exactly VLR's.
+function eventStatsByScope(tournamentId: number, scores: TournamentScores) {
+  const scopes = eventStatsScopesOf(
+    findTournament(tournamentId).vlrEventId,
+    scores.stages.map(({ stage }) => stage),
+  );
+  return (stageId: number | null) => {
+    const scope = scopes.find((candidate) => candidate.stageId === stageId);
+    const html =
+      scope &&
+      db
+        .select({ html: rawPages.html })
+        .from(rawPages)
+        .where(eq(rawPages.url, scope.url))
+        .get()?.html;
+    return html
+      ? parseEventStatsPage(html)
+      : new Map<string, EventPlayerStats>();
+  };
+}
+
 export function leaderboardOf(tournamentId: number): LeaderboardResponse {
   const scores = scoreTournament(tournamentId);
   const removedFrom = removedPickableIdsByStage(
@@ -218,27 +236,31 @@ export function leaderboardOf(tournamentId: number): LeaderboardResponse {
   const totals = totalTallies(tallyLists);
   const teamOf = teamLookup(totals.map(({ pickable }) => pickable.teamId));
 
-  const toRow = ({ pickable, averages, ...tally }: Tally): LeaderboardRow[] => {
-    const team = teamOf(pickable.teamId);
-    if (!team) return [];
-    return [
-      {
-        ...tally,
-        pickable: toPickable(pickable),
-        team,
-        rating: roundsWeightedAverage(averages.rating),
-        acs: roundsWeightedAverage(averages.acs),
-        kast: roundsWeightedAverage(averages.kast),
-        adr: roundsWeightedAverage(averages.adr),
-      },
-    ];
+  const eventStatsOf = eventStatsByScope(tournamentId, scores);
+
+  const scopeOf = (
+    stageId: number | null,
+    tallies: Tally[],
+  ): LeaderboardScope => {
+    const eventStats = eventStatsOf(stageId);
+    return {
+      stageId,
+      rows: tallies.flatMap(({ pickable, ...tally }): LeaderboardRow[] => {
+        const team = teamOf(pickable.teamId);
+        if (!team) return [];
+        const vlrStats =
+          (pickable.vlrId && eventStats.get(pickable.vlrId)) || NO_EVENT_STATS;
+        return [
+          { ...tally, ...vlrStats, pickable: toPickable(pickable), team },
+        ];
+      }),
+    };
   };
-  const scopes: LeaderboardScope[] = [
-    { stageId: null, rows: totals.flatMap(toRow) },
-    ...scores.stages.map(({ stage }, index) => ({
-      stageId: stage.id,
-      rows: (tallyLists[index] ?? []).flatMap(toRow),
-    })),
+  const scopes = [
+    scopeOf(null, totals),
+    ...scores.stages.map(({ stage }, index) =>
+      scopeOf(stage.id, tallyLists[index] ?? []),
+    ),
   ];
   return { scoring: scores.config, scopes };
 }

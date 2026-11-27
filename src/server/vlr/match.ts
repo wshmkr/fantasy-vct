@@ -9,10 +9,6 @@ export interface ParsedPlayerMapStats extends MapStatLine {
   vlrPlayerId: string;
   handle: string;
   side: TeamSide;
-  rating: number | null;
-  acs: number | null;
-  kast: number | null;
-  adr: number | null;
 }
 
 export interface ParsedMap {
@@ -63,12 +59,6 @@ function toCount(text: string): number {
     throw new Error(`Not a count: ${trimmed}`);
   }
   return count;
-}
-
-// VLR leaves a blank or "-" when it has no value; these stats aren't scored, so that isn't an error.
-function toOptionalNumber(text: string): number | null {
-  const value = Number.parseFloat(text.replace("%", ""));
-  return Number.isNaN(value) ? null : value;
 }
 
 function matchStatusOf(note: string): MatchStatus {
@@ -150,14 +140,13 @@ function finishedMapsOf(
             .map((_, row): ParsedPlayerMapStats => {
               const link = $(row).find(".ovw-player a");
               const handle = link.find(".ovw-player-name").text().trim();
-              const statText = (column: string) =>
-                $(row)
-                  .find(`[data-col="${column}"] .side.mod-both`)
-                  .first()
-                  .text();
-              const stat = (column: string) => toCount(statText(column));
-              const optionalStat = (column: string) =>
-                toOptionalNumber(statText(column));
+              const stat = (column: string) =>
+                toCount(
+                  $(row)
+                    .find(`[data-col="${column}"] .side.mod-both`)
+                    .first()
+                    .text(),
+                );
               const highlights = mapPerformance?.get(handle);
               if (!highlights) {
                 throw new Error(`No performance stats for ${handle}`);
@@ -172,10 +161,6 @@ function finishedMapsOf(
                 fk: stat("fb"),
                 fd: stat("fd"),
                 ...highlights,
-                rating: optionalStat("rating2"),
-                acs: optionalStat("acs"),
-                kast: optionalStat("kast"),
-                adr: optionalStat("adr"),
               };
             })
             .get(),

@@ -313,7 +313,6 @@ matches            id, tournament_id, vlr_id (unique), stage_key, team1_id (null
 match_maps         match_id, map_no, map_name, team1_rounds, team2_rounds              PK(match_id, map_no)
 player_map_stats   match_id, map_no, vlr_player_id, handle, team_id → teams,
                    k, d, a, fk, fd, mk3, mk4, aces, clutches                           PK(match_id, map_no, vlr_player_id)
-                   -- leaderboard adds (nullable, not scored): rating, acs, kast, adr
 sub_assignments    match_id, map_no, sub_vlr_player_id,
                    replaces_pickable_id → pickables (nullable: replaced nobody)   -- only the commissioner's choices
                                                                                        PK(match_id, map_no, sub_vlr_player_id)
@@ -457,7 +456,7 @@ Pasting an event link runs the whole import, with a progress indicator. There's 
 **When it runs:**
 - **Ticker:** once a minute, the server checks for **due** matches: `scheduled_at` has passed (or VLR already shows the match live or completed), `scrape_status` isn't `ok`, and `checked_at` is empty or at least 15 minutes old. So a match at 18:00 is checked at about 18:00, 18:15, 18:30… until it's `ok`. `isDue(match, now)` is a pure function with tests.
 - **Schedule refresh:** each tournament that hasn't ended refetches its event page (for the end date) and matches page hourly, and also at the start of any run that has a due match in it. This keeps times, statuses, scores and TBD teams current, so a postponed match simply becomes due later.
-- **Sync button** (`POST /api/tournaments/:id/sync`, commissioner only): refresh the schedule, then treat every started, not-`ok` match as due now. It returns `202` immediately and the job runs in the background; `GET /api/tournaments/:id/matches` carries `syncRunning` so the button can spin.
+- **Sync button** (`POST /api/tournaments/:id/sync`, commissioner only): refresh the schedule, then treat every started, not-`ok` match as due now. It also refetches the tournament's VLR event stats pages (Total plus one per stage), which the leaderboard reads; a ticker run does the same whenever it scraped one of the tournament's matches. It returns `202` immediately and the job runs in the background; `GET /api/tournaments/:id/matches` carries `syncRunning` so the button can spin.
 - The ticker starts with the server, never in tests. `SCHEDULER=off` disables it.
 
 **Scraping one match:**
@@ -790,7 +789,7 @@ Ranks every pickable in a scope by points, with the match stats behind them. `do
 - **Scope chips:** Total, then one per stage. A **players/coaches** toggle.
 - **Rows:** every pickable in the scope's pool, drafted or not; pickables removed from the pool are left out.
 - **Player columns:** OWNERS · MAPS · PRO · PTS · R · ACS · K/D · ADR · KPR · FK:FD · KAST · K · D · A · FK · FD · 3K · 4K · ACE · CL · BONUS. **Coach columns:** OWNERS · MAPS · COACH · PTS · ROUNDS WON · UNPLAYED BONUS · BONUS.
-- Totals only. BONUS (sweep and forfeit) makes every row add up to PTS. R, ACS, ADR and KAST are averaged over rounds. K/D, KPR and FK:FD come from totals; a zero denominator counts as 1.
+- Totals only. BONUS (sweep and forfeit) makes every row add up to PTS. R, ACS, ADR and KAST are VLR's own figures, read from its event stats page for the scope's stages. K/D, KPR and FK:FD come from totals; a zero denominator counts as 1.
 - Sub maps count in the replaced pickable's row, marked with `corner-down-right`. Count cells show their points in a tooltip.
 - **Sort** by any header; default PTS, ties by best match, then name; nulls last. **Filters:** search (`/`), team-logo toggles, and manager avatar toggles plus Undrafted.
 
@@ -1131,4 +1130,4 @@ Update this as packages land, in the form `- [x] 1.0 Scaffold (commit abc123)`.
 - [x] 3. Fly.io deploy only, Discord webhooks and extra jobs deferred (commits 70698e6, cba15c8; live at https://fantasy-vct.fly.dev in ewr, 2026-11-20)
 - [x] 3.1 Forfeits, and drop Swiss phantom series (commits 189deb5, 9bbf775)
 - [x] 3.2 Stage carry-over and one draft flow (commit ec807f4)
-- [ ] Leaderboard tab, with R, ACS, KAST and ADR saved per map (`docs/leaderboard-plan.md`)
+- [ ] Leaderboard tab, with R, ACS, KAST and ADR from VLR's event stats pages (`docs/leaderboard-plan.md`)
