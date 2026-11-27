@@ -117,6 +117,10 @@ export function scoringConfigWith(
 export const sum = (values: number[]) =>
   values.reduce((total, value) => total + value, 0);
 
+// Over a whole stage a zero is rare, so it counts as 1 rather than hiding the stat (3 FK, 0 FD reads 3.00).
+export const ratio = (numerator: number, denominator: number) =>
+  numerator / Math.max(denominator, 1);
+
 const MAP_STAT_KEYS = [
   "k",
   "d",

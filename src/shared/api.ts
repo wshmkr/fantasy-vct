@@ -13,7 +13,7 @@ import {
   type TeamSide,
   type User,
 } from "./entities.js";
-import type { MapStatLine } from "./scoring.js";
+import type { MapStatLine, ScoringConfig } from "./scoring.js";
 
 export interface HealthResponse {
   ok: boolean;
@@ -56,6 +56,8 @@ export const API_ROUTES = {
     `/api/tournaments/${tournamentId}/standings`,
   tournamentMatches: (tournamentId: Id) =>
     `/api/tournaments/${tournamentId}/matches`,
+  tournamentLeaderboard: (tournamentId: Id) =>
+    `/api/tournaments/${tournamentId}/leaderboard`,
   match: (matchId: Id) => `/api/matches/${matchId}`,
   matchSubs: (matchId: Id) => `/api/matches/${matchId}/subs`,
   teamRoster: (teamId: Id) => `/api/teams/${teamId}/roster`,
@@ -210,6 +212,41 @@ export interface ManagerStanding {
 
 export interface StandingsResponse {
   managers: ManagerStanding[];
+}
+
+// One pickable's totals in a scope. Counts include the maps of subs credited to it.
+export interface LeaderboardRow {
+  pickable: Pickable;
+  team: Team;
+  // In stage order; Total lists every stage's owner once.
+  ownerUserIds: number[];
+  maps: number;
+  rounds: number;
+  // Null until its team has a result in the scope.
+  points: number | null;
+  bestMatchPoints: number | null;
+  // Sweep and forfeit points: the part of PTS no stat column explains.
+  bonus: number;
+  stats: MapStatLine;
+  // VLR's own figures from its event stats page; a credited sub's maps aren't in them.
+  rating: number | null;
+  acs: number | null;
+  kast: number | null;
+  adr: number | null;
+  subHandles: string[];
+  roundsWon: number;
+  unplayedBonus: number;
+}
+
+export interface LeaderboardScope {
+  // Null is the whole tournament.
+  stageId: number | null;
+  rows: LeaderboardRow[];
+}
+
+export interface LeaderboardResponse {
+  scoring: ScoringConfig;
+  scopes: LeaderboardScope[];
 }
 
 export interface MatchHeader {

@@ -75,6 +75,7 @@ export interface ScoredStage {
 }
 
 export interface TournamentScores {
+  config: ScoringConfig;
   stages: ScoredStage[];
   matches: ScoredMatch[];
   tournamentPoints: (pickableId: number) => number | null;
@@ -90,7 +91,7 @@ function groupByMatchId<Row extends { matchId: number }>(
   return byMatchId;
 }
 
-function teamSeriesOf(
+export function teamSeriesOf(
   match: MatchRow,
   maps: MatchMapRow[],
   teamId: number,
@@ -106,13 +107,13 @@ function teamSeriesOf(
   };
 }
 
-const teamIdsOf = (match: MatchRow) =>
+export const teamIdsOf = (match: MatchRow) =>
   [match.team1Id, match.team2Id].filter((id) => id !== null);
 
 const forfeitWinnerTeamId = (match: MatchRow) =>
   match.forfeitWinner === 1 ? match.team1Id : match.team2Id;
 
-const hasResult = ({ match, maps }: ScoredMatch) =>
+export const hasResult = ({ match, maps }: ScoredMatch) =>
   maps.length > 0 || match.forfeitWinner !== null;
 
 // A forfeit scores every pickable of the winning team alike: no stats, sweep or coach formula.
@@ -175,7 +176,7 @@ function pairTeamMaps(
   });
 }
 
-function scoredRowsOf(
+export function scoredRowsOf(
   pickable: PickableRow,
   statRows: StatRow[],
   pairings: TeamMapPairing[],
@@ -363,6 +364,7 @@ export function scoreTournament(tournamentId: number): TournamentScores {
   });
 
   return {
+    config,
     stages: scoredStages,
     matches: scoredMatches,
     tournamentPoints: (pickableId) => {

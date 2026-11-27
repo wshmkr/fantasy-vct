@@ -8,6 +8,7 @@ import {
   playerMatchPoints,
   type RosteredPlayer,
   rankStandings,
+  ratio,
   scoringConfigWith,
   sweepBonus,
   type TeamSeries,
@@ -342,5 +343,13 @@ describe("rankStandings", () => {
         standing("Bea", null, null, 0),
       ]).map(({ displayName }) => displayName),
     ).toEqual(["Bea", "Abe"]);
+  });
+});
+
+describe("leaderboard stats", () => {
+  test("a ratio treats a zero denominator as 1", () => {
+    expect(ratio(45, 29)).toBeCloseTo(1.552, 3);
+    expect(ratio(3, 0)).toBe(3);
+    expect(ratio(0, 0)).toBe(0);
   });
 });
