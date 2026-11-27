@@ -1,33 +1,25 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import ButtonBase from "@mui/material/ButtonBase";
-import InputBase from "@mui/material/InputBase";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { API_ROUTES } from "@shared/api";
 import type { PickableKind, PoolPickable, Team } from "@shared/entities";
-import {
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  GraduationCap,
-  Search,
-  User,
-} from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { ExternalLink, GraduationCap, User } from "lucide-react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import Pane from "../../../components/Pane";
 import { CoachBadge } from "../../../components/PlayerChip";
 import PlayerPhoto from "../../../components/PlayerPhoto";
 import Points from "../../../components/Points";
+import SearchField from "../../../components/SearchField";
 import SegmentedControl, {
   type Segment,
 } from "../../../components/SegmentedControl";
-import TeamLogo from "../../../components/TeamLogo";
+import SortHeader, { type SortColumn } from "../../../components/SortHeader";
+import TeamToggles from "../../../components/TeamToggles";
 import {
   availablePool,
   defaultPoolSort,
   nextPoolSort,
-  type PoolSort,
   type PoolSortKey,
 } from "./draftView";
 import { shake } from "./motion";
@@ -45,8 +37,8 @@ const KIND_SEGMENTS: Segment<PickableKind>[] = [
   { key: "coach", label: "Coaches", Icon: GraduationCap },
 ];
 
-const COLUMNS: { key: PoolSortKey; label: string }[] = [
-  { key: "handle", label: "PLAYER" },
+const COLUMNS: SortColumn<PoolSortKey>[] = [
+  { key: "handle", label: "PLAYER", alignLeft: true },
   { key: "points", label: "PTS" },
   { key: "formRating", label: "RTG" },
   { key: "formAcs", label: "ACS" },
@@ -55,109 +47,6 @@ const COLUMNS: { key: PoolSortKey; label: string }[] = [
 
 function formatStat(value: number | null, digits: number): string {
   return value === null ? "" : value.toFixed(digits);
-}
-
-function TeamToggles({
-  teams,
-  selectedTeamIds,
-  onToggle,
-}: {
-  teams: Team[];
-  selectedTeamIds: ReadonlySet<number>;
-  onToggle: (teamId: number) => void;
-}) {
-  return (
-    <Box
-      role="group"
-      aria-label="Teams"
-      sx={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${Math.max(teams.length, 8)}, minmax(0, 1fr))`,
-        gap: "4px",
-      }}
-    >
-      {teams.map((team) => {
-        const isSelected = selectedTeamIds.has(team.id);
-        return (
-          <Tooltip key={team.id} title={team.name}>
-            <ButtonBase
-              aria-label={team.name}
-              aria-pressed={isSelected}
-              onClick={() => onToggle(team.id)}
-              sx={[
-                {
-                  height: 30,
-                  borderRadius: "var(--radius-sm)",
-                  bgcolor: "#ffffff08",
-                  boxShadow: "inset 0 0 0 1px var(--pane-edge)",
-                  opacity: selectedTeamIds.size > 0 ? 0.55 : 1,
-                  transition: "opacity 150ms ease-out, background-color 150ms",
-                  "&:hover": { opacity: 1 },
-                },
-                isSelected && {
-                  opacity: 1,
-                  bgcolor: "#ffffff1f",
-                  boxShadow: "inset 0 0 0 1px var(--pane-highlight)",
-                },
-              ]}
-            >
-              <TeamLogo imageId={team.logoImageId} size={18} />
-            </ButtonBase>
-          </Tooltip>
-        );
-      })}
-    </Box>
-  );
-}
-
-function SortHeader({
-  sort,
-  onSort,
-}: {
-  sort: PoolSort;
-  onSort: (key: PoolSortKey) => void;
-}) {
-  return (
-    <Box
-      sx={{
-        ...POOL_GRID,
-        pb: "8px",
-        borderBottom: "1px solid var(--pane-edge)",
-      }}
-    >
-      {COLUMNS.map((column) => {
-        const isSorted = column.key === sort.key;
-        const Arrow = sort.descending ? ChevronDown : ChevronUp;
-        return (
-          <ButtonBase
-            key={column.key}
-            aria-sort={
-              isSorted ? (sort.descending ? "descending" : "ascending") : "none"
-            }
-            onClick={() => onSort(column.key)}
-            sx={[
-              {
-                justifyContent:
-                  column.key === "handle" ? "flex-start" : "flex-end",
-                gap: "2px",
-                color: "var(--ink-muted)",
-                "&:hover": { color: "var(--ink)" },
-              },
-              isSorted && { color: "var(--accent-text)" },
-            ]}
-          >
-            <Typography
-              variant="label"
-              sx={{ fontWeight: 600, letterSpacing: "0.05em" }}
-            >
-              {column.label}
-            </Typography>
-            {isSorted && <Arrow size={12} aria-hidden />}
-          </ButtonBase>
-        );
-      })}
-    </Box>
-  );
 }
 
 function PoolRow({
@@ -330,7 +219,6 @@ export default function DraftPool({
   );
   const [sort, setSort] = useState(() => defaultPoolSort(pool));
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const teamNames = new Map(teams.map((team) => [team.id, team.name]));
@@ -342,17 +230,6 @@ export default function DraftPool({
   );
   const canAct = actionLabel !== null;
   const selectedIndex = rows.findIndex((row) => row.id === selectedId);
-
-  useEffect(() => {
-    const focusSearch = (event: globalThis.KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      if (event.key !== "/" || target.closest("input, textarea")) return;
-      event.preventDefault();
-      searchRef.current?.focus();
-    };
-    window.addEventListener("keydown", focusSearch);
-    return () => window.removeEventListener("keydown", focusSearch);
-  }, []);
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (!canAct) return;
@@ -402,37 +279,10 @@ export default function DraftPool({
       }}
     >
       <Box sx={{ display: "flex", gap: "8px" }}>
-        <InputBase
-          inputRef={searchRef}
-          type="search"
+        <SearchField
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          inputProps={{ "aria-label": "Search players or teams" }}
-          startAdornment={
-            <Search
-              size={14}
-              color="var(--ink-muted)"
-              aria-hidden
-              style={{ marginRight: 8, flex: "none" }}
-            />
-          }
-          endAdornment={
-            <Typography
-              component="kbd"
-              variant="stat"
-              sx={{
-                px: "5px",
-                fontSize: 10,
-                lineHeight: "16px",
-                color: "var(--ink-muted)",
-                borderRadius: "4px",
-                boxShadow: "inset 0 0 0 1px #ffffff26",
-              }}
-            >
-              /
-            </Typography>
-          }
-          sx={{ flex: 1, minWidth: 0, height: 34, px: "10px", fontSize: 13 }}
+          onChange={setSearch}
+          ariaLabel="Search players or teams"
         />
         <SegmentedControl
           segments={KIND_SEGMENTS}
@@ -452,8 +302,10 @@ export default function DraftPool({
         sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
       >
         <SortHeader
+          columns={COLUMNS}
           sort={sort}
           onSort={(key) => setSort(nextPoolSort(sort, key))}
+          sx={POOL_GRID}
         />
         <Box
           ref={listRef}

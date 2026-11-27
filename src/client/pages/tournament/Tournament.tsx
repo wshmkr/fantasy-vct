@@ -1,5 +1,12 @@
 import Box from "@mui/material/Box";
-import { Calendar, LayoutGrid, Settings2, Shield, Users } from "lucide-react";
+import {
+  Calendar,
+  LayoutGrid,
+  ListOrdered,
+  Settings2,
+  Shield,
+  Users,
+} from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
 import SegmentedControl, {
   type Segment,
@@ -8,6 +15,7 @@ import { useLivePolling } from "../../matches";
 import { useTournament } from "../../tournaments";
 import { useMe } from "../../useMe";
 import DraftTab from "./draft/DraftTab";
+import LeaderboardTab from "./leaderboard/LeaderboardTab";
 import MatchesTab from "./matches/MatchesTab";
 import RostersTab from "./RostersTab";
 import SettingsTab from "./SettingsTab";
@@ -16,6 +24,7 @@ import TournamentHeader from "./TournamentHeader";
 
 const MEMBER_TABS = [
   { key: "rosters", label: "Rosters", Icon: Users },
+  { key: "leaderboard", label: "Leaderboard", Icon: ListOrdered },
   { key: "matches", label: "Matches", Icon: Calendar },
   { key: "draft", label: "Draft", Icon: LayoutGrid },
   { key: "teams", label: "Teams", Icon: Shield },
@@ -55,6 +64,7 @@ export default function Tournament() {
         />
       </Box>
       {tab === "rosters" && <RostersTab tournament={tournament.data} />}
+      {tab === "leaderboard" && <LeaderboardTab tournament={tournament.data} />}
       {tab === "matches" && <MatchesTab tournament={tournament.data} />}
       {tab === "draft" && <DraftTab tournament={tournament.data} />}
       {tab === "teams" && <TeamsTab tournamentId={tournamentId} />}

@@ -192,6 +192,10 @@ describe("scraping matches", () => {
       mk4: 0,
       aces: 0,
       clutches: 2,
+      rating: 1.63,
+      acs: 288,
+      kast: 83,
+      adr: 191,
     });
   });
 

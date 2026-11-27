@@ -2,6 +2,8 @@ import { eq } from "drizzle-orm";
 import type TestAgent from "supertest/lib/agent.js";
 import { beforeAll, describe, expect, test } from "vitest";
 import type {
+  LeaderboardResponse,
+  LeaderboardRow,
   MatchDetail,
   MatchesResponse,
   MatchTeamDetail,
@@ -12,6 +14,7 @@ import type {
   TeamWithPickables,
   Tournament,
 } from "../shared/entities.js";
+import { mapRowPoints } from "../shared/scoring.js";
 import { db } from "./db/client.js";
 import {
   images,
@@ -89,6 +92,18 @@ async function standings(): Promise<StandingsResponse> {
 
 async function matchDetail(vlrId: string): Promise<MatchDetail> {
   return (await member.get(`/api/matches/${matchId(vlrId)}`).expect(200)).body;
+}
+
+async function leaderboardRow(
+  stageId: number | null,
+  handle: string,
+): Promise<LeaderboardRow | undefined> {
+  const body: LeaderboardResponse = (
+    await member.get(`/api/tournaments/${tournamentId}/leaderboard`).expect(200)
+  ).body;
+  return body.scopes
+    .find((scope) => scope.stageId === stageId)
+    ?.rows.find((row) => row.pickable.handle === handle);
 }
 
 function pickPoints(team: MatchTeamDetail | null, handle: string) {
@@ -379,6 +394,112 @@ describe("tournament points", () => {
   });
 });
 
+describe("leaderboard", () => {
+  test("a player's stat points plus bonus make PTS, with sub maps and rounds-weighted averages", async () => {
+    const nismo = await leaderboardRow(firstStageId, "NiSMO");
+    const nismoRows = db
+      .select()
+      .from(playerMapStats)
+      .where(eq(playerMapStats.matchId, matchId("314896")))
+      .all()
+      .filter((row) => row.handle === "NiSMO");
+    const roundsByMapNo = new Map([
+      [1, 13 + 11],
+      [2, 13 + 6],
+    ]);
+    const weightedAcs =
+      nismoRows.reduce(
+        (total, row) =>
+          total + (row.acs ?? 0) * (roundsByMapNo.get(row.mapNo) ?? 0),
+        0,
+      ) /
+      (24 + 19);
+
+    expect(nismo).toMatchObject({
+      points: 53 + 70 + 15,
+      bonus: 15,
+      maps: 2,
+      rounds: 43,
+      stats: { k: 45, d: 29, a: 14 },
+      subHandles: [],
+    });
+    expect(nismo?.acs).toBeCloseTo(weightedAcs);
+
+    const lear = await leaderboardRow(null, "Lear");
+    expect(lear?.points).toBe(73 + (-2 - 12 + 53));
+    expect(lear?.subHandles).toEqual(["ScrewFace"]);
+    expect(lear && mapRowPoints(lear.stats) + lear.bonus).toBe(lear?.points);
+  });
+
+  test("a coach's rounds won, unplayed maps and bonus make PTS, from completed series only", async () => {
+    expect(await leaderboardRow(firstStageId, "Coach 11001")).toMatchObject({
+      points: 82,
+      maps: 2,
+      roundsWon: 26,
+      unplayedBonus: 30,
+      bonus: 0,
+    });
+    expect(await leaderboardRow(null, "Coach 14822")).toMatchObject({
+      points: 60 + 76,
+      maps: 6,
+      roundsWon: 30 + 38,
+      unplayedBonus: 0,
+    });
+  });
+
+  test("owners join across stages; undrafted pickables have none, removed ones have no row", async () => {
+    const [, secondStageId] = db
+      .select({ id: stages.id })
+      .from(stages)
+      .where(eq(stages.tournamentId, tournamentId))
+      .orderBy(stages.position)
+      .all()
+      .map(({ id }) => id);
+    if (secondStageId === undefined) throw new Error("no second stage");
+    rosterOf(secondStageId, memberId, ["NiSMO"]);
+    db.update(stagePool)
+      .set({ removed: true })
+      .where(eq(stagePool.pickableId, pickableId("bench")))
+      .run();
+
+    expect((await leaderboardRow(null, "NiSMO"))?.ownerUserIds).toEqual([
+      commissionerId,
+      memberId,
+    ]);
+    expect(await leaderboardRow(null, "unplayed")).toMatchObject({
+      ownerUserIds: [],
+      points: null,
+      maps: 0,
+      acs: null,
+    });
+    expect(await leaderboardRow(firstStageId, "bench")).toBeUndefined();
+
+    db.delete(rosterEntries)
+      .where(eq(rosterEntries.stageId, secondStageId))
+      .run();
+    db.update(stagePool).set({ removed: false }).run();
+  });
+
+  test("carries the tournament's own scoring values", async () => {
+    db.update(tournaments)
+      .set({ scoringJson: { kill: 6 } })
+      .where(eq(tournaments.id, tournamentId))
+      .run();
+    const body: LeaderboardResponse = (
+      await member
+        .get(`/api/tournaments/${tournamentId}/leaderboard`)
+        .expect(200)
+    ).body;
+    db.update(tournaments)
+      .set({ scoringJson: {} })
+      .where(eq(tournaments.id, tournamentId))
+      .run();
+
+    expect(body.scoring.kill).toBe(6);
+    expect(body.scoring.death).toBe(-5);
+  });
+});
+
 describe("matches", () => {
   test("lists the schedule with owners per team and sync state", async () => {
     const body: MatchesResponse = (
@@ -516,5 +637,12 @@ describe("forfeits", () => {
     expect(detail.team2?.picks.length).toBeGreaterThan(0);
     expect(detail.team2?.picks.every((pick) => pick.points === 0)).toBe(true);
     expect(await tournamentPointsOf("NiSMO")).toBe((nismoBefore ?? 0) + 80);
+    expect(await leaderboardRow(firstStageId, "bench 11001")).toMatchObject({
+      points: 80,
+      bonus: 80,
+      maps: 0,
+      acs: null,
+    });
+    expect((await leaderboardRow(firstStageId, "Coach 11001"))?.bonus).toBe(80);
   });
 });

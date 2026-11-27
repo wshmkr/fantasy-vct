@@ -26,6 +26,7 @@
     "db:studio": "drizzle-kit studio",
     "seed:dev": "tsx src/server/db/seed-dev.ts",
     "vlr:import": "tsx src/server/vlr/import-cli.ts",
+    "vlr:backfill-averages": "tsx src/server/vlr/backfill-map-averages-cli.ts",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {

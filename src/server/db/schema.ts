@@ -298,6 +298,11 @@ export const playerMapStats = sqliteTable(
     mk4: integer("mk4").notNull(),
     aces: integer("aces").notNull(),
     clutches: integer("clutches").notNull(),
+    // Not scored; nullable because hand-written rows may lack them.
+    rating: real("rating"),
+    acs: integer("acs"),
+    kast: integer("kast"),
+    adr: integer("adr"),
   },
   (table) => [
     primaryKey({

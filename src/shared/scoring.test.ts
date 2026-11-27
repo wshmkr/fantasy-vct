@@ -8,6 +8,8 @@ import {
   playerMatchPoints,
   type RosteredPlayer,
   rankStandings,
+  ratio,
+  roundsWeightedAverage,
   scoringConfigWith,
   sweepBonus,
   type TeamSeries,
@@ -342,5 +344,25 @@ describe("rankStandings", () => {
         standing("Bea", null, null, 0),
       ]).map(({ displayName }) => displayName),
     ).toEqual(["Bea", "Abe"]);
+  });
+});
+
+describe("leaderboard stats", () => {
+  test("a ratio treats a zero denominator as 1", () => {
+    expect(ratio(45, 29)).toBeCloseTo(1.552, 3);
+    expect(ratio(3, 0)).toBe(3);
+    expect(ratio(0, 0)).toBe(0);
+  });
+
+  test("averages weight each map by its rounds and skip missing values", () => {
+    expect(
+      roundsWeightedAverage([
+        { value: 300, rounds: 24 },
+        { value: 200, rounds: 12 },
+        { value: null, rounds: 20 },
+      ]),
+    ).toBeCloseTo((300 * 24 + 200 * 12) / 36);
+    expect(roundsWeightedAverage([{ value: null, rounds: 24 }])).toBeNull();
+    expect(roundsWeightedAverage([])).toBeNull();
   });
 });
