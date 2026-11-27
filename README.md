@@ -73,6 +73,6 @@ fly deploy --ha=false
 The Discord application's OAuth2 redirect must be `https://fantasy-vct.fly.dev/api/auth/discord/callback`. After that, `fly deploy` ships a new version.
 
 - **Admin fixes:** `fly ssh console -C "sqlite3 /data/app.db"`
-- **Fill in R, ACS, KAST and ADR** for matches scraped before those columns existed (reads saved pages only): `fly ssh console -C "node dist/server/vlr/backfill-map-averages-cli.js"`
+- **Fill in R, ACS, KAST and ADR** for matches scraped before those columns existed (reads saved pages only): `fly ssh console -C "node /app/dist/server/vlr/backfill-map-averages-cli.js"`
 - **Backups:** Fly snapshots the volume daily and keeps 30 days (`fly volumes snapshots list <volume id>`). To restore, create a volume from a snapshot (`fly volumes create data --snapshot-id <id> --region ewr`), destroy the machine and the old volume, then `fly deploy --ha=false`.
 - **Local copy:** `fly ssh console -C "sqlite3 /data/app.db '.backup /data/copy.db'"`, then `fly ssh sftp get /data/copy.db`

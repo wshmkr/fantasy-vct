@@ -8,7 +8,7 @@ A new **Leaderboard** tab that ranks every pickable in a scope by points, with t
 - A new tab, **Leaderboard**, between Rosters and Matches, Lucide `list-ordered`. Every logged-in user sees it.
 - It ranks **pickables**. Standings (managers) stay on Rosters.
 - Scope chips: **Total**, then one per stage. Default Total.
-- Rows: **every pickable in the scope's pool**, drafted or not. In Total, every pickable in any stage's pool.
+- Rows: **every pickable in the scope's pool**, drafted or not, except those removed from the pool. In Total, every pickable in any stage's pool.
 - A **players / coaches** toggle, like the draft pool.
 
 **Columns** (totals only: no per-map columns, no heatmap)
