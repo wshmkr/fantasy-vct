@@ -95,7 +95,11 @@ function StatCell({
 }) {
   const value = columnValue(row, columnKey, ownerName);
   if (columnKey === "points") {
-    return <Points points={row.points} />;
+    return (
+      <Box role="cell" sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <Points points={row.points} />
+      </Box>
+    );
   }
   const cell = (
     <Typography
@@ -110,12 +114,16 @@ function StatCell({
     </Typography>
   );
   const pointsWorth = countPoints(columnKey, value, scoring);
-  return pointsWorth ? (
-    <Tooltip title={pointsWorth} placement="top">
-      {cell}
-    </Tooltip>
-  ) : (
-    cell
+  return (
+    <Box role="cell" sx={{ display: "flex", justifyContent: "flex-end" }}>
+      {pointsWorth ? (
+        <Tooltip title={pointsWorth} placement="top">
+          {cell}
+        </Tooltip>
+      ) : (
+        cell
+      )}
+    </Box>
   );
 }
 
@@ -150,7 +158,7 @@ function LeaderboardRowView({
       {LEADERBOARD_COLUMNS[row.pickable.kind].map(({ key }) => {
         if (key === "owners") {
           return (
-            <Box key={key} sx={{ display: "flex", minWidth: 0 }}>
+            <Box key={key} role="cell" sx={{ display: "flex", minWidth: 0 }}>
               <ManagerStack
                 members={owners}
                 size={22}
@@ -164,6 +172,7 @@ function LeaderboardRowView({
           return (
             <Box
               key={key}
+              role="cell"
               sx={{
                 display: "flex",
                 alignItems: "center",
