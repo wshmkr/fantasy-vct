@@ -44,8 +44,8 @@ const KIND_SEGMENTS: Segment<PickableKind>[] = [
 
 const GRID_COLUMNS: Record<PickableKind, string> = {
   player:
-    "64px 40px minmax(150px, 1fr) 52px repeat(7, 46px) repeat(9, 36px) 52px",
-  coach: "64px 40px minmax(180px, 1fr) 52px 100px 128px 64px",
+    "64px 48px minmax(150px, 1fr) 52px repeat(7, 46px) repeat(9, 36px) 52px",
+  coach: "64px 48px minmax(180px, 1fr) 52px 112px 148px 64px",
 };
 
 const gridOf = (kind: PickableKind) => ({
